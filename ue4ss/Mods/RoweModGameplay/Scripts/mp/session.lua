@@ -295,16 +295,25 @@ function M.status()
         return "mp off"
     end
     local bridge = state.box and state.box:read_bridge_status() or "?"
+    local connected = "?"
+    pcall(function()
+        local f = io.open(state.box.dir .. "/connected.txt", "rb")
+        if f then
+            connected = (f:read("*l") or "?"):gsub("%s+", "")
+            f:close()
+        end
+    end)
     local peers = 0
     for _ in pairs(state.peerNames) do
         peers = peers + 1
     end
     return string.format(
-        "mp on map=%s session=%s ok=%s peers=%d bridge=%s",
+        "mp on map=%s session=%s ok=%s peers=%d connected=%s bridge=%s",
         tostring(state.localMapId),
         tostring(state.sessionMapId or "?"),
         tostring(state.mapsMatched),
         peers,
+        tostring(connected),
         tostring(bridge)
     )
 end

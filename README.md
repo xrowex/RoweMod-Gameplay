@@ -52,6 +52,8 @@ LAN ghost skaters with **map handshake** + transform + trick/grind events. See *
 
 Design notes: [docs/multiplayer-tricks-grinds.md](docs/multiplayer-tricks-grinds.md).
 
+Prove the LAN path without the game: `tools\mp_prove.cmd` (writes [docs/proofs/latest.json](docs/proofs/latest.json)).
+
 
 ## What it changes
 

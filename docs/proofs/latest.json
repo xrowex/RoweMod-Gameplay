@@ -1,0 +1,58 @@
+{
+  "connect": {
+    "ok": true,
+    "checks": {
+      "bridge_connected": true,
+      "host_got_join_hello": true,
+      "host_got_join_transform": true,
+      "host_got_join_grind_or_grab": true,
+      "join_got_host_hello": true,
+      "join_got_host_transform": true,
+      "join_got_host_grind": true,
+      "join_got_map_signal": true,
+      "host_peers_json": true,
+      "join_peers_json": true,
+      "host_peers_connected_flag": true
+    },
+    "errors": [],
+    "host_rx": 7,
+    "join_rx": 6,
+    "host_inbox": [
+      "JoinSkater|PING|JoinSkater|1",
+      "JoinSkater|H|0|JoinSkater|2|ProvePark",
+      "JoinSkater|H|20|JoinSkater|2|ProvePark",
+      "JoinSkater|M|21|ProvePark",
+      "JoinSkater|T|22|10.0000|20.0000|30.0000|0.000|0.000|0.000|1.000|0.000|0.000",
+      "JoinSkater|G+|23|ProvePark#Rail_A|0.1000|alley|0.5000",
+      "JoinSkater|A|24|indy"
+    ],
+    "join_inbox": [
+      "HostSkater|PONG|HostSkater|JoinSkater|1",
+      "HostSkater|H|10|HostSkater|2|ProvePark",
+      "HostSkater|M|11|ProvePark",
+      "HostSkater|MREQ|12|ProvePark",
+      "HostSkater|T|13|100.0000|200.0000|50.0000|0.000|90.000|0.000|5.000|0.000|0.000",
+      "HostSkater|G+|14|ProvePark#Rail_A|0.2500|souls|0.8000"
+    ],
+    "host_peers": {
+      "connected": true,
+      "peers": [
+        {
+          "name": "JoinSkater",
+          "addr": "127.0.0.1:49990",
+          "age": 0.09470129013061523
+        }
+      ]
+    }
+  },
+  "mapmiss": {
+    "ok": true,
+    "checks": {
+      "bridge_connected_despite_map_mismatch": true,
+      "host_saw_peer_map_b": true,
+      "join_saw_peer_map_a": true,
+      "maps_differ": true
+    },
+    "errors": []
+  }
+}

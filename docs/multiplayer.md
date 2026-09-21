@@ -99,9 +99,12 @@ UE4SS Lua has no sockets, so the bridge is required. Design notes: [multiplayer-
 - Until grind bool/stance props are confirmed, grind packets may not fire (transform still will once maps match).
 - Do not use this to harass anyone; lobbies are manual.
 
-## Dev
+## Dev / prove connections
 
 ```bat
-python tests\test_mp.py
-python tools\rowemod_mp.py loopback
+tools\mp_prove.cmd
+python tools\mp_prove.py --suite all --out docs\proofs\latest.json
+python -m unittest discover -s tests -v
 ```
+
+`mp_prove.py` stands up a real UDP host + joiner on loopback, writes simulated game hello/map/transform/grind packets into both mailboxes, and asserts bidirectional delivery. Exit `0` = PASS. Latest report: [proofs/latest.json](proofs/latest.json).
