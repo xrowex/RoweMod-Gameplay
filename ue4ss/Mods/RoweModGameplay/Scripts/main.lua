@@ -1,6 +1,7 @@
 --[[
     RoweMod Gameplay — live feel options for Rollout Inline.
     Applies NewMainCharacter fields after spawn. Does not replace the clothing overlay.
+    Also ships recon helpers (rowemod recon / watch) for multiplayer trick/grind research.
 ]]
 
 local UEHelpers = require("UEHelpers")
@@ -194,6 +195,47 @@ local function apply_all(silent)
     return total
 end
 
+-- Known feel / trick-adjacent scalars (many may be nil until confirmed in-game).
+local DUMP_SCALAR_NAMES = {
+    "Speed", "CasualSpeedIncrease", "SprintSpeedIncrease", "PreviousSpeed",
+    "MaxLinearForce", "MaxAngularForce", "Gravity", "SlomoSpeed",
+    "MaxSpinSpeed", "MaxFlipSpeed", "JumpVelocity", "MinJumpHeight",
+    "GrindMagnetStrength", "BalanceIntensity",
+}
+
+-- Name substrings that usually matter for trick/grind recon.
+local RECON_HINTS = {
+    "grind", "rail", "ledge", "balance", "trick", "grab", "spin", "flip",
+    "plant", "manual", "cess", "stance", "combo", "montage", "anim",
+    "skate", "wheel", "magnet", "bail", "ragdoll", "air", "jump",
+}
+
+local watch_enabled = false
+local watch_snapshot = {}
+
+local function value_to_string(value)
+    if value == nil then
+        return "nil"
+    end
+    local t = type(value)
+    if t == "number" or t == "boolean" or t == "string" then
+        return tostring(value)
+    end
+    local ok, asObj = pcall(function()
+        if value.IsValid and value:IsValid() and value.GetFullName then
+            return value:GetFullName()
+        end
+        if value.ToString then
+            return value:ToString()
+        end
+        return nil
+    end)
+    if ok and asObj then
+        return asObj
+    end
+    return tostring(value)
+end
+
 local function dump_skater()
     local skaters = find_skaters()
     if #skaters == 0 then
@@ -202,18 +244,209 @@ local function dump_skater()
     end
     local pawn = skaters[1]
     log("pawn " .. tostring(pawn:GetFullName()))
-    local names = {
-        "Speed", "CasualSpeedIncrease", "SprintSpeedIncrease", "PreviousSpeed",
-        "MaxLinearForce", "MaxAngularForce", "Gravity", "SlomoSpeed",
-        "MaxSpinSpeed", "MaxFlipSpeed", "JumpVelocity", "MinJumpHeight",
-        "GrindMagnetStrength", "BalanceIntensity",
-    }
-    for _, name in ipairs(names) do
+    for _, name in ipairs(DUMP_SCALAR_NAMES) do
         local value = read_num(pawn, name)
         if value ~= nil then
             log("  " .. name .. " = " .. tostring(value))
         end
     end
+end
+
+local function name_is_interesting(name)
+    local lower = string.lower(name)
+    for _, hint in ipairs(RECON_HINTS) do
+        if string.find(lower, hint, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function recon_pawn(pawn, interesting_only)
+    log("recon pawn " .. tostring(pawn:GetFullName()))
+    local propCount = 0
+    local interesting = 0
+    local okProps = pcall(function()
+        local classObj = pawn:GetClass()
+        while classObj and classObj:IsValid() do
+            log("  --- " .. classObj:GetFullName() .. " ---")
+            classObj:ForEachProperty(function(prop)
+                local name = prop:GetFName():ToString()
+                propCount = propCount + 1
+                local show = (not interesting_only) or name_is_interesting(name)
+                if show then
+                    interesting = interesting + 1
+                    local ok, value = pcall(function()
+                        return pawn[name]
+                    end)
+                    local typeName = "?"
+                    pcall(function()
+                        typeName = prop:GetClass():GetFName():ToString()
+                    end)
+                    if ok then
+                        log(string.format("  prop [%s] %s = %s", typeName, name, value_to_string(value)))
+                    else
+                        log(string.format("  prop [%s] %s = <unreadable>", typeName, name))
+                    end
+                end
+            end)
+            classObj = classObj:GetSuperStruct()
+        end
+    end)
+    if not okProps then
+        log("  class property walk failed — fall back to known scalars")
+        for _, name in ipairs(DUMP_SCALAR_NAMES) do
+            local value = read_num(pawn, name)
+            if value ~= nil then
+                log("  " .. name .. " = " .. tostring(value))
+            end
+        end
+    else
+        log(string.format("  properties scanned=%d shown=%d (interesting_only=%s)",
+            propCount, interesting, tostring(interesting_only and true or false)))
+    end
+
+    local fnCount = 0
+    local fnShown = 0
+    local okFns = pcall(function()
+        local classObj = pawn:GetClass()
+        while classObj and classObj:IsValid() do
+            if classObj.ForEachFunction then
+                classObj:ForEachFunction(function(fn)
+                    local name = fn:GetFName():ToString()
+                    fnCount = fnCount + 1
+                    if (not interesting_only) or name_is_interesting(name) then
+                        fnShown = fnShown + 1
+                        log("  fn " .. name)
+                    end
+                end)
+            end
+            classObj = classObj:GetSuperStruct()
+        end
+    end)
+    if okFns then
+        log(string.format("  functions scanned=%d shown=%d", fnCount, fnShown))
+    else
+        log("  function walk unavailable — use CXX dump (Ctrl+H) for UFunctions")
+    end
+end
+
+local function recon_world_objects()
+    log("recon: scanning loaded UObjects for grind/trick-related names")
+    local hits = 0
+    local ok = pcall(function()
+        ForEachUObject(function(obj)
+            if not obj or not obj:IsValid() then
+                return
+            end
+            local okName, full = pcall(function()
+                return obj:GetFullName()
+            end)
+            if not okName or not full then
+                return
+            end
+            if name_is_interesting(full) then
+                hits = hits + 1
+                if hits <= 200 then
+                    log("  obj " .. full)
+                end
+            end
+        end)
+    end)
+    if not ok then
+        -- Fallback: probe a few likely short class names.
+        log("  ForEachUObject unavailable — probing FindAllOf short names")
+        local guesses = {
+            "NewMainCharacter_C", "NewMainCharacter",
+            "Grind", "Rail", "Balance", "Trick", "Grab",
+        }
+        for _, name in ipairs(guesses) do
+            local foundOk, list = pcall(FindAllOf, name)
+            if foundOk and list then
+                for _, obj in ipairs(list) do
+                    if obj and obj:IsValid() then
+                        hits = hits + 1
+                        log("  FindAllOf(" .. name .. ") -> " .. obj:GetFullName())
+                    end
+                end
+            end
+        end
+    end
+    log(string.format("recon: object name hits=%d%s", hits, hits > 200 and " (truncated after 200)" or ""))
+end
+
+local function recon_all(interesting_only)
+    local skaters = find_skaters()
+    if #skaters == 0 then
+        log("recon: no pawn")
+        notify("recon: no skater yet")
+        return
+    end
+    for _, pawn in ipairs(skaters) do
+        recon_pawn(pawn, interesting_only)
+    end
+    recon_world_objects()
+    notify(interesting_only and "recon (hints) done — check UE4SS log"
+        or "recon (full) done — check UE4SS log")
+end
+
+local function capture_watch_values(pawn)
+    local snap = {}
+    for _, name in ipairs(DUMP_SCALAR_NAMES) do
+        snap[name] = read_num(pawn, name)
+    end
+    -- Best-effort: also sample any currently readable interesting props.
+    pcall(function()
+        local classObj = pawn:GetClass()
+        while classObj and classObj:IsValid() do
+            classObj:ForEachProperty(function(prop)
+                local name = prop:GetFName():ToString()
+                if name_is_interesting(name) then
+                    local ok, value = pcall(function()
+                        return pawn[name]
+                    end)
+                    if ok then
+                        local s = value_to_string(value)
+                        if #s < 180 then
+                            snap[name] = s
+                        end
+                    end
+                end
+            end)
+            classObj = classObj:GetSuperStruct()
+        end
+    end)
+    return snap
+end
+
+local function watch_tick()
+    if not watch_enabled then
+        return true
+    end
+    local skaters = find_skaters()
+    if #skaters == 0 then
+        return false
+    end
+    local pawn = skaters[1]
+    local id = pawn_id(pawn)
+    local now = capture_watch_values(pawn)
+    local prev = watch_snapshot[id]
+    if prev then
+        for key, value in pairs(now) do
+            if prev[key] ~= value then
+                log(string.format("watch %s: %s -> %s", key, tostring(prev[key]), tostring(value)))
+            end
+        end
+        for key, value in pairs(prev) do
+            if now[key] == nil and value ~= nil then
+                log(string.format("watch %s: %s -> <gone>", key, tostring(value)))
+            end
+        end
+    else
+        log("watch: baseline captured for " .. tostring(pawn:GetFullName()))
+    end
+    watch_snapshot[id] = now
+    return false
 end
 
 load_config()
@@ -239,6 +472,20 @@ RegisterKeyBind(Key.F8, function()
     apply_all(false)
 end)
 
+RegisterKeyBind(Key.F7, function()
+    recon_all(true)
+end)
+
+RegisterKeyBind(Key.F6, function()
+    watch_enabled = not watch_enabled
+    if watch_enabled then
+        watch_snapshot = {}
+        notify("watch ON — grind/trick prop changes → log")
+    else
+        notify("watch OFF")
+    end
+end)
+
 RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
     local cmd = Parameters[1] and string.lower(Parameters[1]) or "apply"
     if cmd == "reload" or cmd == "load" then
@@ -248,6 +495,25 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
     end
     if cmd == "dump" then
         dump_skater()
+        return true
+    end
+    if cmd == "recon" then
+        local mode = Parameters[2] and string.lower(Parameters[2]) or "hints"
+        recon_all(mode ~= "full" and mode ~= "all")
+        return true
+    end
+    if cmd == "watch" then
+        local mode = Parameters[2] and string.lower(Parameters[2]) or nil
+        if mode == "off" or mode == "stop" then
+            watch_enabled = false
+            notify("watch OFF")
+        elseif mode == "on" or mode == "start" or mode == nil then
+            watch_enabled = true
+            watch_snapshot = {}
+            notify("watch ON — grind/trick prop changes → log")
+        else
+            log("usage: rowemod watch [on|off]")
+        end
         return true
     end
     if cmd == "speed" or cmd == "x" then
@@ -262,7 +528,7 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
         apply_all(false)
         return true
     end
-    log("usage: rowemod apply | rowemod speed 1.5 | rowemod dump | rowemod reload")
+    log("usage: rowemod apply | speed 1.5 | dump | recon [hints|full] | watch [on|off] | reload")
     apply_all(false)
     return true
 end)
@@ -272,4 +538,9 @@ LoopAsync(4000, function()
     return false
 end)
 
-log("loaded. Numpad +/- speed, F8 reload config, console: rowemod speed 1.5")
+LoopAsync(100, function()
+    watch_tick()
+    return false
+end)
+
+log("loaded. Numpad +/- speed, F8 reload, F7 recon, F6 watch; console: rowemod recon | watch")

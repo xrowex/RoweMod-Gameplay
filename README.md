@@ -21,6 +21,8 @@ Default is **1.25×** casual + sprint speed increase. Edit `ue4ss\Mods\RoweModGa
 |---|---|
 | Numpad **+** / **-** | Speed up / slow down (0.1 steps) |
 | **F8** | Reload `config.lua` |
+| **F7** | Recon dump (grind/trick-hint properties + functions) |
+| **F6** | Toggle watch (log grind/trick-related property changes) |
 | **~** or **F10** | Console (UE4SS ConsoleEnabler) |
 
 Console:
@@ -28,10 +30,17 @@ Console:
 ```
 rowemod speed 1.5
 rowemod dump
+rowemod recon
+rowemod recon full
+rowemod watch on
+rowemod watch off
 rowemod reload
 ```
 
 Green on-screen text confirms the current multiplier.
+
+Multiplayer / trick-grind sync research: [docs/multiplayer-tricks-grinds.md](docs/multiplayer-tricks-grinds.md).
+
 
 ## What it changes
 
