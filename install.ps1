@@ -29,14 +29,24 @@ function Get-SteamLibraries {
     return $libs | Select-Object -Unique
 }
 
+function Test-Win64($dir) {
+    if (-not $dir -or -not (Test-Path $dir)) { return $false }
+    return (Test-Path (Join-Path $dir "RollerSkate-Win64-Shipping.exe")) -or
+        (Test-Path (Join-Path $dir "RollerSkate.exe"))
+}
+
 function Find-Win64 {
     $rel = "steamapps\common\RolloutInline\RollerSkate\Binaries\Win64"
     foreach ($lib in Get-SteamLibraries) {
         $dir = Join-Path $lib $rel
-        if (Test-Path (Join-Path $dir "RollerSkate.exe")) { return (Resolve-Path $dir).Path }
+        if (Test-Win64 $dir) { return (Resolve-Path $dir).Path }
     }
-    $fallback = "C:\Program Files (x86)\Steam\steamapps\common\RolloutInline\RollerSkate\Binaries\Win64"
-    if (Test-Path (Join-Path $fallback "RollerSkate.exe")) { return (Resolve-Path $fallback).Path }
+    foreach ($fallback in @(
+            "C:\Program Files (x86)\Steam\steamapps\common\RolloutInline\RollerSkate\Binaries\Win64",
+            "C:\program files (x86)\steam\steamapps\common\RolloutInline\RollerSkate\Binaries\Win64"
+        )) {
+        if (Test-Win64 $fallback) { return (Resolve-Path $fallback).Path }
+    }
     return $null
 }
 
