@@ -43,11 +43,12 @@ Green on-screen text confirms the current multiplier.
 
 ### Multiplayer (experimental)
 
-LAN ghost skaters with transform + trick/grind events. See **[docs/multiplayer.md](docs/multiplayer.md)**.
+LAN ghost skaters with **map handshake** + transform + trick/grind events. See **[docs/multiplayer.md](docs/multiplayer.md)**.
 
 1. Host: `tools\mp_host.cmd`
 2. Join: `tools\mp_join.cmd <host-lan-ip>`
-3. In-game on both: **F9** or `rowemod mp on`
+3. Same map (or `rowemod mp travel` after host `rowemod mp map`)
+4. In-game: **F9** / `rowemod mp host` / `rowemod mp join`
 
 Design notes: [docs/multiplayer-tricks-grinds.md](docs/multiplayer-tricks-grinds.md).
 

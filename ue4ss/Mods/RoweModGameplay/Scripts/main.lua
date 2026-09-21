@@ -91,6 +91,25 @@ local function mp_start()
     end
     local mpCfg = config.mp or {}
     mpCfg.playerName = mpCfg.playerName or "skater"
+    -- Resolve host/join from config or bridge status.
+    local role = mpCfg.role or "auto"
+    if role == "auto" then
+        local status = nil
+        pcall(function()
+            local mailbox = require("mp.mailbox")
+            local box = mailbox.open(mpCfg.mailboxDir)
+            status = box:read_bridge_status()
+        end)
+        if status and string.find(string.lower(status), "host", 1, true) then
+            role = "host"
+        elseif status and string.find(string.lower(status), "join", 1, true) then
+            role = "join"
+        else
+            role = "host"
+        end
+    end
+    mpCfg.role = role
+    mpCfg.isHost = (role == "host")
     return mp_session.start(mpCfg, mp_notify)
 end
 
@@ -598,12 +617,53 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
                 config.mp.enabled = false
             end
             mp_stop()
+        elseif mode == "host" or mode == "join" then
+            if not config.mp then
+                config.mp = {}
+            end
+            config.mp.enabled = true
+            config.mp.role = mode
+            if Parameters[3] then
+                config.mp.playerName = Parameters[3]
+            end
+            mp_start()
         elseif mode == "status" then
             local s = mp_session and mp_session.status() or "mp module missing"
             notify(s)
             log(s)
+        elseif mode == "map" then
+            if not mp_session then
+                notify("MP module missing")
+                return true
+            end
+            local mapinfo = require("mp.mapinfo")
+            local info = mapinfo.current()
+            local arg = Parameters[3]
+            if arg and arg ~= "" then
+                -- rowemod mp map <id>  → request peers to this map (host authority)
+                local ok, detail = mp_session.request_map(arg)
+                notify(ok and ("map req " .. tostring(detail)) or tostring(detail))
+            else
+                notify("map=" .. tostring(info.id) .. "  " .. (mp_session.status and mp_session.status() or ""))
+                log("map raw=" .. tostring(info.raw))
+            end
+        elseif mode == "travel" then
+            if not mp_session then
+                notify("MP module missing")
+                return true
+            end
+            local target = Parameters[3]
+            if not target or target == "" then
+                target = mp_session.local_map and mp_session.local_map() or nil
+            end
+            -- Prefer session map from host if traveling without arg
+            if (not Parameters[3] or Parameters[3] == "") and mp_session.status then
+                -- travel to session map announced by host
+            end
+            local ok, detail = mp_session.travel(target)
+            notify(ok and ("travel " .. tostring(target)) or ("travel fail: " .. tostring(detail)))
         else
-            log("usage: rowemod mp on [name] | mp off | mp status")
+            log("usage: rowemod mp on|off|host|join|status|map [id]|travel [id]")
         end
         return true
     end

@@ -8,13 +8,16 @@
     A|seq|grabId
     B|seq
     L|seq|ok|stance
-    H|seq|name|ver
+    H|seq|name|ver|mapId          -- hello (v2 includes map)
+    M|seq|mapId                    -- local map changed / announce
+    MREQ|seq|mapId                 -- host asks peers to travel here
+    MACK|seq|mapId|ok              -- peer ack travel / current map
     Bye|seq
 ]]
 
 local M = {}
 
-M.VERSION = "1"
+M.VERSION = "2"
 
 local function num(v, fallback)
     local n = tonumber(v)
@@ -116,8 +119,26 @@ function M.encode_land(seq, ok, stance)
     return string.format("L|%d|%d|%s", seq, ok and 1 or 0, esc(stance or ""))
 end
 
-function M.encode_hello(seq, name)
-    return string.format("H|%d|%s|%s", seq, esc(name or "skater"), esc(M.VERSION))
+function M.encode_hello(seq, name, mapId)
+    return string.format(
+        "H|%d|%s|%s|%s",
+        seq,
+        esc(name or "skater"),
+        esc(M.VERSION),
+        esc(mapId or "unknown")
+    )
+end
+
+function M.encode_map(seq, mapId)
+    return string.format("M|%d|%s", seq, esc(mapId or "unknown"))
+end
+
+function M.encode_map_req(seq, mapId)
+    return string.format("MREQ|%d|%s", seq, esc(mapId or "unknown"))
+end
+
+function M.encode_map_ack(seq, mapId, ok)
+    return string.format("MACK|%d|%s|%d", seq, esc(mapId or "unknown"), ok and 1 or 0)
 end
 
 function M.encode_bye(seq)
@@ -174,7 +195,19 @@ function M.decode(line)
     elseif kind == "L" then
         return { type = "land", seq = num(p[2]), ok = num(p[3]) == 1, stance = unesc(p[4]) }
     elseif kind == "H" then
-        return { type = "hello", seq = num(p[2]), name = unesc(p[3]), ver = unesc(p[4]) }
+        return {
+            type = "hello",
+            seq = num(p[2]),
+            name = unesc(p[3]),
+            ver = unesc(p[4]),
+            mapId = unesc(p[5] or "unknown"),
+        }
+    elseif kind == "M" then
+        return { type = "map", seq = num(p[2]), mapId = unesc(p[3]) }
+    elseif kind == "MREQ" then
+        return { type = "map_req", seq = num(p[2]), mapId = unesc(p[3]) }
+    elseif kind == "MACK" then
+        return { type = "map_ack", seq = num(p[2]), mapId = unesc(p[3]), ok = num(p[4]) == 1 }
     elseif kind == "Bye" then
         return { type = "bye", seq = num(p[2]) }
     end

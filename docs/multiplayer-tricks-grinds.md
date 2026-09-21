@@ -156,10 +156,11 @@ Shipped in this repo (experimental):
 
 1. **Recon** — `rowemod recon` / `watch` (F7 / F6).
 2. **Ghost + sync loop** — `Scripts/mp/*` captures local transform + grind/trick edges, writes a mailbox, applies remote packets to ghost pawns.
-3. **LAN bridge** — `tools/rowemod_mp.py` (UDP host/join) + `mp_host.cmd` / `mp_join.cmd`.
-4. **Howto** — [multiplayer.md](multiplayer.md).
+3. **Map handshake** — detect level name, put `mapId` on hello, host `MREQ`, gate gameplay until peers share a map; rail ids scoped `mapId#rail`.
+4. **LAN bridge** — `tools/rowemod_mp.py` (UDP host/join) + `mp_host.cmd` / `mp_join.cmd`.
+5. **Howto** — [multiplayer.md](multiplayer.md).
 
-Still needs a live `rowemod recon` pass to lock real property names in `config.lua` → `mp.props`. Ghost spawn may need tweaking per UE4SS build.
+Still needs a live `rowemod recon` pass to lock real property names in `config.lua` → `mp.props`. Ghost spawn / `OpenLevel` paths may need tweaking per build.
 
 ## Immediate next actions (on a machine with the game)
 

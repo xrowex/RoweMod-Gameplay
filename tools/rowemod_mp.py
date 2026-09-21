@@ -41,6 +41,9 @@ def ensure_dirs(root: Path) -> tuple[Path, Path]:
 
 def write_status(root: Path, text: str) -> None:
     (root / "bridge_status.txt").write_text(text + "\n", encoding="utf-8")
+    # Convenience for Lua role=auto
+    role = "host" if text.startswith("host") else "join" if text.startswith("join") else "unknown"
+    (root / "role.txt").write_text(role + "\n", encoding="utf-8")
 
 
 def append_manifest(in_dir: Path, name: str) -> None:

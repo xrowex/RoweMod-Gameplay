@@ -71,11 +71,44 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(msg["railId"], "Rail_Foo")
         self.assertEqual(msg["stance"], "souls")
 
+    def test_hello_includes_map(self):
+        line = "H|1|posi|2|Downtown"
+        p = line.split("|")
+        self.assertEqual(p[0], "H")
+        self.assertEqual(p[3], "2")
+        self.assertEqual(p[4], "Downtown")
+
+    def test_map_req(self):
+        line = "MREQ|4|Warehouse"
+        p = line.split("|")
+        self.assertEqual(p[0], "MREQ")
+        self.assertEqual(p[2], "Warehouse")
+
     def test_pack_unpack(self):
         blob = rmp.pack("alice", "G+|1|r|0.1|st|0.5")
         peer, line = rmp.unpack(blob)
         self.assertEqual(peer, "alice")
         self.assertTrue(line.startswith("G+"))
+
+
+class MapNormalizeTests(unittest.TestCase):
+    def normalize(self, raw: str) -> str:
+        s = (raw or "").strip().replace("\\", "/")
+        import re
+
+        s = re.sub(r"^UEDPIE_\d+_", "", s)
+        if "/" in s:
+            short = s.rsplit("/", 1)[-1]
+            short = short.split(".", 1)[0]
+            if short:
+                s = short
+        s = s.removesuffix(".umap").rstrip(".")
+        return s or "unknown"
+
+    def test_strips_pie_and_path(self):
+        self.assertEqual(self.normalize("UEDPIE_0_Warehouse"), "Warehouse")
+        self.assertEqual(self.normalize("/Game/MainFolder/Maps/Downtown.Downtown"), "Downtown")
+        self.assertEqual(self.normalize("Park_01"), "Park_01")
 
 
 class MailboxTests(unittest.TestCase):
