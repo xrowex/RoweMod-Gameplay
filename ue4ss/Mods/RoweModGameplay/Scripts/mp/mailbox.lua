@@ -23,8 +23,20 @@ function M.default_dir()
     return (tmp:gsub("\\", "/") .. "/RoweModMP")
 end
 
+--- Resolve mailbox path: explicit arg → env ROUEMOD_MP_MAILBOX → default.
+function M.resolve_dir(explicit)
+    if type(explicit) == "string" and explicit ~= "" then
+        return explicit:gsub("\\", "/")
+    end
+    local env = os.getenv("ROUEMOD_MP_MAILBOX")
+    if type(env) == "string" and env ~= "" then
+        return env:gsub("\\", "/")
+    end
+    return M.default_dir()
+end
+
 function M.open(dir)
-    dir = (dir and dir ~= "" and dir) or M.default_dir()
+    dir = M.resolve_dir(dir)
     dir = dir:gsub("\\", "/")
     local self = {
         dir = dir,

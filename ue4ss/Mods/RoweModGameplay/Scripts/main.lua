@@ -90,7 +90,16 @@ local function mp_start()
         return false
     end
     local mpCfg = config.mp or {}
-    mpCfg.playerName = mpCfg.playerName or "skater"
+    local envName = os.getenv("ROUEMOD_MP_NAME")
+    mpCfg.playerName = envName or mpCfg.playerName or "skater"
+    local envMailbox = os.getenv("ROUEMOD_MP_MAILBOX")
+    if envMailbox and envMailbox ~= "" then
+        mpCfg.mailboxDir = envMailbox
+    end
+    local envRole = os.getenv("ROUEMOD_MP_ROLE")
+    if envRole and envRole ~= "" then
+        mpCfg.role = string.lower(envRole)
+    end
     -- Resolve host/join from config or bridge status.
     local role = mpCfg.role or "auto"
     if role == "auto" then
@@ -110,6 +119,8 @@ local function mp_start()
     end
     mpCfg.role = role
     mpCfg.isHost = (role == "host")
+    log(string.format("mp start role=%s name=%s mailbox=%s",
+        tostring(role), tostring(mpCfg.playerName), tostring(mpCfg.mailboxDir or "(default)")))
     return mp_session.start(mpCfg, mp_notify)
 end
 

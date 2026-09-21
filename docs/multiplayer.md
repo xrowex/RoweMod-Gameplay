@@ -2,24 +2,26 @@
 
 Experimental LAN sync for Rollout Inline via UE4SS. Each player runs the full single-player game; a small Python bridge shuttles state; the Lua mod drives **ghost skaters**.
 
-## Quick start (two PCs on the same LAN)
+## Two clients on one PC
 
-1. Install this mod (`install.ps1`) on both PCs. You need **Python 3** on both.
-2. **Host** (PC A), from this repo:
-
-```bat
-tools\mp_host.cmd
-```
-
-3. **Join** (PC B), using PC A’s LAN IP:
+Yes — use separate mailboxes (one shared inbox would collide):
 
 ```bat
-tools\mp_join.cmd 192.168.1.10
+tools\mp_dual_local.cmd
 ```
 
-4. Launch the game. **Both players must end up on the same map** (see below). Press **F9** (or `rowemod mp host` / `rowemod mp join`).
+That script:
 
-You should see a ghost for the other player once the map handshake succeeds. Transforms stream continuously; grind enter/update/exit, grabs, and bails go on the reliable path when the matching pawn properties resolve.
+1. Starts UDP **host** bridge on `%TEMP%\RoweModMP\A`
+2. Starts UDP **join** bridge on `%TEMP%\RoweModMP\B` → `127.0.0.1`
+3. Launches **two** `RollerSkate-Win64-Shipping.exe` windows (`-windowed`) with:
+   - `ROUEMOD_MP_MAILBOX` / `ROUEMOD_MP_NAME` / `ROUEMOD_MP_ROLE`
+
+In each window: same map → **F9**. Status should show `connected=1`.
+
+Steam’s library button often refuses a second instance; launching the shipping exe directly is intentional. If the second window still fails, start the exe twice yourself after the bridges are up.
+
+On two different PCs, keep using `mp_host.cmd` / `mp_join.cmd` instead.
 
 ## Maps (required)
 

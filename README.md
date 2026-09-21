@@ -45,14 +45,16 @@ Green on-screen text confirms the current multiplier.
 
 LAN ghost skaters with **map handshake** + transform + trick/grind events. See **[docs/multiplayer.md](docs/multiplayer.md)**.
 
-1. Host: `tools\mp_host.cmd`
-2. Join: `tools\mp_join.cmd <host-lan-ip>`
-3. Same map (or `rowemod mp travel` after host `rowemod mp map`)
-4. In-game: **F9** / `rowemod mp host` / `rowemod mp join`
+**Two windows on one PC:** `tools\mp_dual_local.cmd` (separate mailboxes + two bridges + two shipping exes).
+
+**Two PCs:**  
+1. Host: `tools\mp_host.cmd`  
+2. Join: `tools\mp_join.cmd <host-lan-ip>`  
+3. Same map → **F9**
+
+Prove without the game: `tools\mp_prove.cmd` → [docs/proofs/latest.json](docs/proofs/latest.json).
 
 Design notes: [docs/multiplayer-tricks-grinds.md](docs/multiplayer-tricks-grinds.md).
-
-Prove the LAN path without the game: `tools\mp_prove.cmd` (writes [docs/proofs/latest.json](docs/proofs/latest.json)).
 
 
 ## What it changes
