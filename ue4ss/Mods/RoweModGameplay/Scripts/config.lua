@@ -13,4 +13,26 @@ return {
     maxAngularForce = nil,
     gravity = nil,
     slomoSpeed = nil,
+
+    -- Multiplayer (tricks / grinds / transform sync). Opt-in.
+    -- 1) Start tools/rowemod_mp.py host  (or join --host <ip>)
+    -- 2) In-game: rowemod mp on   (or F9)
+    mp = {
+        enabled = false,
+        playerName = "skater",
+        -- nil = %TEMP%/RoweModMP  (must match the bridge --mailbox)
+        mailboxDir = nil,
+        transformHz = 20,
+
+        -- Property name guesses. After `rowemod recon`, put the real names first.
+        props = {
+            grinding = { "bIsGrinding", "IsGrinding", "Grinding", "OnGrind", "bOnRail" },
+            balance = { "Balance", "BalanceMeter", "CurrentBalance", "GrindBalance" },
+            stance = { "GrindStance", "Stance", "GrindType", "CurrentGrind" },
+            grab = { "CurrentGrab", "GrabType", "Grab", "ActiveGrab" },
+            rail = { "CurrentRail", "GrindRail", "Rail", "ActiveRail" },
+            splineT = { "GrindDistance", "RailAlpha", "SplineDistance", "GrindAlpha" },
+            bail = { "bIsRagdoll", "IsRagdoll", "bBail", "Ragdolling" },
+        },
+    },
 }

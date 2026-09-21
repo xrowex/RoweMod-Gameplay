@@ -21,6 +21,7 @@ Default is **1.25×** casual + sprint speed increase. Edit `ue4ss\Mods\RoweModGa
 |---|---|
 | Numpad **+** / **-** | Speed up / slow down (0.1 steps) |
 | **F8** | Reload `config.lua` |
+| **F9** | Toggle multiplayer session (needs `tools/rowemod_mp.py`) |
 | **F7** | Recon dump (grind/trick-hint properties + functions) |
 | **F6** | Toggle watch (log grind/trick-related property changes) |
 | **~** or **F10** | Console (UE4SS ConsoleEnabler) |
@@ -31,15 +32,24 @@ Console:
 rowemod speed 1.5
 rowemod dump
 rowemod recon
-rowemod recon full
 rowemod watch on
-rowemod watch off
+rowemod mp on
+rowemod mp off
+rowemod mp status
 rowemod reload
 ```
 
 Green on-screen text confirms the current multiplier.
 
-Multiplayer / trick-grind sync research: [docs/multiplayer-tricks-grinds.md](docs/multiplayer-tricks-grinds.md).
+### Multiplayer (experimental)
+
+LAN ghost skaters with transform + trick/grind events. See **[docs/multiplayer.md](docs/multiplayer.md)**.
+
+1. Host: `tools\mp_host.cmd`
+2. Join: `tools\mp_join.cmd <host-lan-ip>`
+3. In-game on both: **F9** or `rowemod mp on`
+
+Design notes: [docs/multiplayer-tricks-grinds.md](docs/multiplayer-tricks-grinds.md).
 
 
 ## What it changes

@@ -1,10 +1,22 @@
 --[[
     RoweMod Gameplay — live feel options for Rollout Inline.
     Applies NewMainCharacter fields after spawn. Does not replace the clothing overlay.
-    Also ships recon helpers (rowemod recon / watch) for multiplayer trick/grind research.
+    Recon: rowemod recon / watch. Multiplayer: rowemod mp on (needs tools/rowemod_mp.py).
 ]]
 
 local UEHelpers = require("UEHelpers")
+
+local mp_session = nil
+pcall(function()
+    mp_session = require("mp.session")
+end)
+if not mp_session then
+    pcall(function()
+        -- Older package.path layouts
+        package.path = package.path .. ";./mp/?.lua;./?.lua"
+        mp_session = require("mp.session")
+    end)
+end
 
 local CONFIG_PATHS = {
     "Mods/RoweModGameplay/Scripts/config.lua",
@@ -57,12 +69,47 @@ local function load_config()
         if type(config.speedMultiplier) ~= "number" then
             config.speedMultiplier = 1.0
         end
+        if type(config.mp) ~= "table" then
+            config.mp = { enabled = false }
+        end
         log("config speedMultiplier=" .. tostring(config.speedMultiplier))
         return true
     end
     log("could not read config.lua (" .. tostring(loaded) .. ") — using defaults")
-    config = { speedMultiplier = 1.0 }
+    config = { speedMultiplier = 1.0, mp = { enabled = false } }
     return false
+end
+
+local function mp_notify(msg)
+    notify(msg)
+end
+
+local function mp_start()
+    if not mp_session then
+        notify("MP module missing")
+        return false
+    end
+    local mpCfg = config.mp or {}
+    mpCfg.playerName = mpCfg.playerName or "skater"
+    return mp_session.start(mpCfg, mp_notify)
+end
+
+local function mp_stop()
+    if mp_session then
+        mp_session.stop(mp_notify)
+    end
+end
+
+local function mp_sync_from_config()
+    if not mp_session then
+        return
+    end
+    local want = config.mp and config.mp.enabled
+    if want and not mp_session.is_active() then
+        mp_start()
+    elseif (not want) and mp_session.is_active() then
+        mp_stop()
+    end
 end
 
 local function read_num(obj, name)
@@ -449,8 +496,6 @@ local function watch_tick()
     return false
 end
 
-load_config()
-
 RegisterHook("/Script/Engine.PlayerController:ClientRestart", function()
     ExecuteWithDelay(800, function()
         apply_all(false)
@@ -470,6 +515,7 @@ end)
 RegisterKeyBind(Key.F8, function()
     load_config()
     apply_all(false)
+    mp_sync_from_config()
 end)
 
 RegisterKeyBind(Key.F7, function()
@@ -486,11 +532,31 @@ RegisterKeyBind(Key.F6, function()
     end
 end)
 
+RegisterKeyBind(Key.F9, function()
+    if not mp_session then
+        notify("MP module missing")
+        return
+    end
+    if mp_session.is_active() then
+        if config.mp then
+            config.mp.enabled = false
+        end
+        mp_stop()
+    else
+        if not config.mp then
+            config.mp = {}
+        end
+        config.mp.enabled = true
+        mp_start()
+    end
+end)
+
 RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
     local cmd = Parameters[1] and string.lower(Parameters[1]) or "apply"
     if cmd == "reload" or cmd == "load" then
         load_config()
         apply_all(false)
+        mp_sync_from_config()
         return true
     end
     if cmd == "dump" then
@@ -516,6 +582,31 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
         end
         return true
     end
+    if cmd == "mp" then
+        local mode = Parameters[2] and string.lower(Parameters[2]) or "status"
+        if mode == "on" or mode == "start" then
+            if not config.mp then
+                config.mp = {}
+            end
+            config.mp.enabled = true
+            if Parameters[3] then
+                config.mp.playerName = Parameters[3]
+            end
+            mp_start()
+        elseif mode == "off" or mode == "stop" then
+            if config.mp then
+                config.mp.enabled = false
+            end
+            mp_stop()
+        elseif mode == "status" then
+            local s = mp_session and mp_session.status() or "mp module missing"
+            notify(s)
+            log(s)
+        else
+            log("usage: rowemod mp on [name] | mp off | mp status")
+        end
+        return true
+    end
     if cmd == "speed" or cmd == "x" then
         local n = tonumber(Parameters[2])
         if n then
@@ -528,7 +619,7 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
         apply_all(false)
         return true
     end
-    log("usage: rowemod apply | speed 1.5 | dump | recon [hints|full] | watch [on|off] | reload")
+    log("usage: rowemod apply | speed 1.5 | dump | recon | watch | mp on|off|status | reload")
     apply_all(false)
     return true
 end)
@@ -543,4 +634,17 @@ LoopAsync(100, function()
     return false
 end)
 
-log("loaded. Numpad +/- speed, F8 reload, F7 recon, F6 watch; console: rowemod recon | watch")
+LoopAsync(50, function()
+    if mp_session and mp_session.is_active() then
+        local ok, err = pcall(mp_session.tick)
+        if not ok then
+            log("mp tick error: " .. tostring(err))
+        end
+    end
+    return false
+end)
+
+load_config()
+mp_sync_from_config()
+
+log("loaded. F9 mp toggle, F7 recon, F6 watch, F8 reload; console: rowemod mp on")

@@ -150,6 +150,17 @@ Clothing sync can reuse RoweMod row names (`DT-upper` keys) as opaque ids — se
 - **Anti-annoyance**: README already warns not to harass others if official MP appears; keep lobbies opt-in.
 - **Piracy / fake “community multiplayer” builds**: ignore untrusted redistributions claiming LAN/P2P; research against the Steam build only.
 
+## Implementation status
+
+Shipped in this repo (experimental):
+
+1. **Recon** — `rowemod recon` / `watch` (F7 / F6).
+2. **Ghost + sync loop** — `Scripts/mp/*` captures local transform + grind/trick edges, writes a mailbox, applies remote packets to ghost pawns.
+3. **LAN bridge** — `tools/rowemod_mp.py` (UDP host/join) + `mp_host.cmd` / `mp_join.cmd`.
+4. **Howto** — [multiplayer.md](multiplayer.md).
+
+Still needs a live `rowemod recon` pass to lock real property names in `config.lua` → `mp.props`. Ghost spawn may need tweaking per UE4SS build.
+
 ## Immediate next actions (on a machine with the game)
 
 1. Install UE4SS + this mod; load a map with a long rail.
