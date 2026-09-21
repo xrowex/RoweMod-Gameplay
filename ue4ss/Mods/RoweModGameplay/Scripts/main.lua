@@ -679,7 +679,7 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
         apply_all(false)
         return true
     end
-    log("usage: rowemod apply | speed 1.5 | dump | recon | watch | mp on|off|status | reload")
+    log("usage: rowemod apply | speed | dump | recon | watch | mp on|off|host|join|status|map|travel | reload")
     apply_all(false)
     return true
 end)
