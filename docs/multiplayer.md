@@ -60,7 +60,7 @@ Matching body/clothing rigs can share Unreal leader-pose transforms, reducing re
 | `rowemod mp inspect on` / `off` | Toggle position and frame/render diagnostics |
 | `rowemod mp avatar` | Write local mesh/material census to the mailbox |
 
-Manual loading through the game's map menu is the most reliable travel path. Automatic travel is optional (`mp.autoTravelToHostMap`); packaged level path resolution can fail. Sync is gated by map name, with different-map peers excluded individually.
+Steam joining automatically follows the host's stock park, including subsequent host map changes. Exact installed package paths are used for Outdoor Skatepark, The Big Hall and Observatory. Gameplay sync waits for the correct map and local player spawn; duplicate host requests cannot restart an ongoing load. Loading times out after 60 seconds with a Retry Map Load action. Unsupported/custom maps are reported without attempting arbitrary travel or downloading content. LAN uses `mp.autoTravelToHostMap`, enabled in the default config. Different-map peers remain excluded individually.
 
 ## Architecture and limits
 

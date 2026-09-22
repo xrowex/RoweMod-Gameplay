@@ -988,10 +988,13 @@ local menu_ok, menu_error = pcall(function()
         end,
         disconnect = function() config.mp.enabled=false;mp_stop() end,
         status = function() return mp_session.status() end,
+        map_status = function() return mp_session.map_status() end,
+        retry_map = function() return mp_session.retry_map() end,
     })
     api.multiplayer = online_page.build
     api.tick = online_page.tick
     api.unmount = online_page.unmount
+    if online_page.update then game_thread.loop(250,online_page.update) end
     menu.init(api)
     rowe_menu = menu
 end)

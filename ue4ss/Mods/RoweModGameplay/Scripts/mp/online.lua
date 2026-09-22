@@ -12,6 +12,9 @@ function M.configure(cfg)
     cfg.mp.online = true
     cfg.mp.enabled = true
     cfg.mp.role = "auto"
+    cfg.mp.autoTravelToHostMap = true
+    cfg.mp.hostMapAuthority = true
+    cfg.mp.requireSameMap = true
     local inherited = os.getenv("ROUEMOD_MP_ONLINE") == "1" and os.getenv("ROUEMOD_MP_MAILBOX")
     cfg.mp.mailboxDir = inherited or (require("mp.mailbox").default_dir() .. "/Steam")
 end

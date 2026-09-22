@@ -76,7 +76,7 @@ return {
         requireSameMap = true,
         hostMapAuthority = true,
         -- If true, joiners OpenLevel when the host sends a map request.
-        autoTravelToHostMap = false,
+        autoTravelToHostMap = true,
 
         -- Real NewMainCharacter names first, then leftover guesses.
         props = {

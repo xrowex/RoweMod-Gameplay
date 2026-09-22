@@ -1,5 +1,5 @@
 --[[
-    Multiplayer session: capture local skater → mailbox → bridge → peers,
+    Multiplayer session: capture local skater â†’ mailbox â†’ bridge â†’ peers,
     apply remote packets onto ghost skaters (tricks/grinds + transform).
 
     Peers must share the same mapId. Until they do, gameplay sync is gated.
@@ -65,11 +65,10 @@ local function refresh_local_map()
     local info = mapinfo.current()
     local id = info.id or "unknown"
     if id ~= state.localMapId then
-        local prev = state.localMapId
         state.localMapId = id
         if state.ghosts then state.ghosts:clear() end
         if state.isHost then state.sessionMapId = id end
-        if state.active and prev and prev ~= "unknown" then
+        if state.active and id ~= "unknown" then
             send_line(protocol.encode_map(next_seq(), id))
             send_line(protocol.encode_hello(next_seq(), state.playerName, id))
             -- A host changing maps must actively replace a joiner's earlier
@@ -102,6 +101,7 @@ host_map_authority = function()
 end
 
 local function maps_in_sync()
+    if state.travel and (state.travel.phase=="loading" or state.travel.phase=="failed" or state.travel.phase=="waiting") then return false end
     if not require_same_map() then
         return true
     end
@@ -171,6 +171,11 @@ local function handle_map_req(msg)
         return
     end
     state.sessionMapId = want
+    if state.cfg and state.cfg.autoTravelToHostMap then
+        state.travel:request(want,state.localMapId,capture.local_pawn()~=nil)
+        recompute_match()
+        return
+    end
     if mapinfo.same(state.localMapId, want) then
         send_line(protocol.encode_map_ack(next_seq(), state.localMapId, true))
         recompute_match()
@@ -187,7 +192,7 @@ local function handle_map_req(msg)
             notify("travel failed: " .. tostring(detail))
         end
     else
-        notify("host map=" .. want .. " — rowemod mp travel  (or enable autoTravelToHostMap)")
+        notify("host map=" .. want .. " â€” rowemod mp travel  (or enable autoTravelToHostMap)")
         send_line(protocol.encode_map_ack(next_seq(), state.localMapId, false))
     end
     recompute_match()
@@ -242,7 +247,7 @@ local function handle_packet(line, defaultPeer)
     end
 
     if msg.type == "map_req" then
-        if not state.isHost then handle_map_req(msg) end
+        if not state.isHost and (not state.cfg.online or state.bridgeJoined) then handle_map_req(msg) end
         return
     end
 
@@ -286,6 +291,14 @@ end
 
 function M.maps_ok()
     return state.mapsMatched
+end
+function M.map_status()
+    return state.travel and {phase=state.travel.phase,message=state.travel.message,target=state.travel.target} or {phase="idle"}
+end
+function M.retry_map()
+    if state.active and not state.isHost and state.travel and state.travel.target then
+        state.travel:request(state.sessionMapId or state.travel.target,state.localMapId,capture.local_pawn()~=nil,true)
+    end
 end
 
 function M.inspect(continuous)
@@ -398,6 +411,15 @@ function M.start(cfg, notify_fn)
     state.peerMaps = {}
     state.mapsMatched = false
     state.pendingTravel = nil
+    state.localMapId="unknown";state.sessionMapId=nil
+    state.bridgeLobby=nil;state.bridgeJoined=false;state.lastRoleCheck=nil
+    state.travel=require("mp.travel").new(function(want)
+        state.ghosts:clear()
+        notify("Loading host's park: "..want)
+        return mapinfo.travel(want)
+    end,function(actual,ok)
+        send_line(protocol.encode_map_ack(next_seq(),actual,ok))
+    end)
     state.active = true
     -- Render independently of packet capture/polling. Keep this on UE4SS's
     -- persistent native game-thread timer (the async handoff caused the crash).
@@ -442,6 +464,7 @@ function M.stop(notify_fn)
         state.ghosts:clear()
     end
     state.active = false
+    state.travel=nil
     if state.renderLoop and type(CancelDelayedAction)=="function" then
         CancelDelayedAction(state.renderLoop)
         state.renderLoop=nil
@@ -500,14 +523,20 @@ function M.tick()
         state.lastRoleCheck = os.time()
         local bridge = state.box:read_bridge_status() or ""
         local isHost = bridge:match("^host transport=steam ") ~= nil
-        if state.isHost ~= isHost then
+        local lobby=bridge:match("lobby=(%d+)") or "0"
+        state.bridgeJoined=lobby~="0" and bridge:match("^join transport=steam ")~=nil
+        if state.isHost ~= isHost or state.bridgeLobby~=lobby then
+            state.bridgeLobby=lobby
+            state.ghosts:clear();state.peerMaps={};state.peerNames={}
             state.isHost = isHost
             state.sessionMapId = isHost and state.localMapId or nil
+            if state.travel then state.travel.phase="idle";state.travel.target=nil;state.travel.queued=nil end
             if isHost then send_line(protocol.encode_map_req(next_seq(), state.localMapId)) end
         end
     end
 
     refresh_local_map()
+    if state.travel then state.travel:update(state.localMapId,capture.local_pawn()~=nil) end
     recompute_match()
     for id,s in pairs(state.ghosts.ghosts) do
         if os.time()-(s.lastSeen or os.time())>5 then state.ghosts:remove(id) end

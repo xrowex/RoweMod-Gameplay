@@ -71,7 +71,7 @@ local function release_page(capture)
     S.controls={};S.status=nil
 end
 local function change_page(page)
-    S.page=page; S.rebuild=true
+    S.page=page;S.message=nil; S.rebuild=true
 end
 local function pretty(value)
     if type(value)=="boolean" then return value and "ON" or "OFF" end
@@ -151,7 +151,7 @@ build_page=function()
         end),true)
         vadd(S.content,actions,8)
     end
-    S.status=label(S.content,S.message or "Changes apply live. Save to keep them.",15,C.muted)
+    S.status=label(S.content,S.message or (S.page=="Multiplayer" and "Join a session to follow the host's park automatically." or "Changes apply live. Save to keep them."),15,C.muted)
     S.status:SetAutoWrapText(true);vadd(S.content,S.status,8)
     vadd(S.content,label(S.content,"F5 close   /   Mouse or arrows + Enter   /   D-pad + A",13,C.muted))
     S.click=false;S.rebuild=false
@@ -305,6 +305,18 @@ end
 -- Small renderer API for the multiplayer page, sharing input and style.
 M.button=button;M.label=label;M.vadd=vadd;M.hadd=hadd;M.construct=construct;M.settext=settext
 M.message=message;M.rebuild=function() S.rebuild=true end
+function M.card(parent,title,subtitle)
+    local border=construct("Border",parent);border:SetBrushColor(C.row)
+    border:SetPadding({Left=16,Top=12,Right=16,Bottom=12})
+    local body=construct("VerticalBox",border);border:SetContent(body);vadd(parent,border,8)
+    if title then vadd(body,label(body,title,22,C.white),4) end
+    if subtitle then local text=label(body,subtitle,15,C.muted);text:SetAutoWrapText(true);vadd(body,text,4) end
+    return body
+end
+function M.action(parent,title,fn,accent)
+    local holder=box(parent,46);local control=button(holder,title,fn,accent)
+    holder:SetContent(control);vadd(parent,holder,6)
+end
 function M.entry(parent,text)
     local e=construct("EditableTextBox",parent);settext(e,text or "")
     return e

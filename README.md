@@ -4,7 +4,7 @@ In-game gameplay settings and Steam multiplayer. Unofficial fan mod.
 
 ## Install
 
-1. [Download **RoweMod-0.5.2.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
+1. [Download **RoweMod-0.5.3.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
 2. Extract the whole ZIP. Close Rollout and RoweMod Online.
 3. Double-click **install.cmd**. UE4SS is included; no Python installation needed.
 4. Launch Rollout from Steam, load a park, and press **F5**.
@@ -13,11 +13,11 @@ Use Movement, Tricks, or Balance to adjust gameplay live. Click **Save Settings*
 
 ## Play with a friend
 
-1. Both players install this version and load the same map.
-2. Open **F5 > Multiplayer > Start Steam Connection** and wait for **Steam ready**. Startup failures now appear in the menu; an unresponsive launch times out after 30 seconds.
-3. Host selects **Host Friends**. The other player selects **Find Friends**, then **Join**.
+1. Both players install this version. The host loads a park.
+2. Open **F5 > Multiplayer**. Steam connects and friends are found automatically.
+3. Host selects **Host > Host Session**. Friends select **Join Session**; their game loads the host's park automatically.
 
-You can also host public sessions or join by lobby ID. Each player needs their own Steam account and copy of Rollout. Both players need the same custom clothing assets to see custom outfits.
+Public sessions and joining with a code are available inside the Join/Host views. Automatic map loading supports the three stock parks: Outdoor Skatepark, The Big Hall and Observatory. Each player needs their own Steam account and copy of Rollout. Both players need the same custom clothing assets to see custom outfits.
 
 Multiplayer is experimental. Independent LAN movement and local Steam lobby checks pass; full two-account internet validation is still pending.
 

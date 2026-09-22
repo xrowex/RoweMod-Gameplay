@@ -17,9 +17,9 @@ function M.normalize(raw)
         return "unknown"
     end
     s = s:gsub("\\", "/")
-    -- UEDPIE_0_MapName → MapName
+    -- UEDPIE_0_MapName â†’ MapName
     s = s:gsub("^UEDPIE_%d+_", "")
-    -- package path /Game/Foo/Bar.Bar → Bar (prefer asset name)
+    -- package path /Game/Foo/Bar.Bar â†’ Bar (prefer asset name)
     local short = s:match("/([^/]+)$")
     if short then
         short = short:gsub("%..*$", "")
@@ -129,7 +129,8 @@ function M.current()
         try_persistent_package(),
     }
     local raw = nil
-    for _, c in ipairs(candidates) do
+    for i=1,4 do
+        local c=candidates[i]
         if c and tostring(c) ~= "" then
             raw = tostring(c)
             break
@@ -148,63 +149,28 @@ function M.same(a, b)
     return M.normalize(a) == M.normalize(b)
 end
 
---- Best-effort travel to a map short name or /Game/... path.
---- Returns ok, detail.
-function M.travel(mapId)
-    mapId = trim(mapId)
-    if mapId == "" or mapId == "unknown" then
-        return false, "no map id"
-    end
-    local world = UEHelpers.GetWorld()
-    if not world or not world:IsValid() then
-        return false, "no world"
-    end
-
-    local attempts = { mapId }
-    -- If it looks like a short name, also try common Rollout content roots.
-    if not mapId:find("/", 1, true) then
-        attempts[#attempts + 1] = "/Game/MainFolder/Maps/" .. mapId
-        attempts[#attempts + 1] = "/Game/MainFolder/" .. mapId
-        attempts[#attempts + 1] = "/Game/Maps/" .. mapId
-        attempts[#attempts + 1] = "/Game/" .. mapId
-    end
-
-    local gs = nil
-    pcall(function()
-        gs = StaticFindObject("/Script/Engine.Default__GameplayStatics")
-    end)
-
-    for _, target in ipairs(attempts) do
-        local ok = false
-        local err = nil
-        if gs and gs:IsValid() and gs.OpenLevel then
-            ok, err = pcall(function()
-                -- OpenLevel(WorldContextObject, LevelName, bAbsolute, Options)
-                gs:OpenLevel(world, target, true, "")
-            end)
-        end
-        if ok then
-            return true, "OpenLevel " .. target
-        end
-        -- Console fallback
-        local ok2 = pcall(function()
-            local pc = UEHelpers.GetPlayerController and UEHelpers.GetPlayerController()
-            if pc and pc:IsValid() and pc.ConsoleCommand then
-                pc:ConsoleCommand("open " .. target, true)
-            elseif pc and pc:IsValid() and pc.ServerExec then
-                pc:ServerExec("open " .. target)
-            else
-                error("no console")
-            end
-        end)
-        if ok2 then
-            return true, "console open " .. target
-        end
-        if err then
-            -- keep trying
-        end
-    end
-    return false, "travel failed for " .. mapId
+-- Exact stock park packages verified from the installed IoStore directory.
+local parks={OutdoorSkatepark="/Game/MainFolder/Maps/OutdoorSkatepark/OutdoorSkatepark",
+    TheBigHall="/Game/MainFolder/Maps/TheBigHall/TheBigHall",
+    Observatory="/Game/MainFolder/Maps/Observatory/Observatory"}
+function M.destination(mapId) return parks[M.normalize(mapId)] end
+function M.is_menu(mapId)
+    local id=M.normalize(mapId)
+    return id=="unknown" or id=="StartMenu" or id=="Entry"
 end
-
+-- Request one verified package. Session confirms actual arrival separately.
+function M.travel(mapId)
+    local target=M.destination(mapId)
+    if not target then return false,"This map is not supported for automatic loading: "..M.normalize(mapId) end
+    local world=UEHelpers.GetWorld()
+    if not world or not world:IsValid() then return false,"No game world is ready" end
+    local gs=StaticFindObject("/Script/Engine.Default__GameplayStatics")
+    if not gs or not gs:IsValid() then return false,"Map loading is unavailable" end
+    local ok,err=pcall(function()
+        local menu=package.loaded.rowe_menu
+        if menu and menu.is_open() then menu.close() end
+        gs:OpenLevel(world,FName(target),true,"")
+    end)
+    return ok,ok and ("Loading "..M.normalize(mapId)) or tostring(err)
+end
 return M

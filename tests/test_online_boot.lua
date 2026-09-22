@@ -8,8 +8,9 @@ local invoked=false
 os.execute=function() invoked=true end
 assert(not online.open("123&whoami"))
 assert(not invoked)
-local cfg={}
+local cfg={mp={autoTravelToHostMap=false}}
 online.configure(cfg)
 assert(cfg.mp.online and cfg.mp.enabled and cfg.mp.role=="auto")
 assert(cfg.mp.mailboxDir:match("/Steam$"))
+assert(cfg.mp.autoTravelToHostMap and cfg.mp.hostMapAuthority and cfg.mp.requireSameMap,'Online joins must migrate old manual-map configs')
 print("online launch argument and mailbox tests passed")

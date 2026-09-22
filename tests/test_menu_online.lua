@@ -1,52 +1,65 @@
 package.path="ue4ss/Mods/RoweModGameplay/Scripts/?.lua;"..package.path
 local now=1000
 os.time=function() return now end
-local root=arg[1].."/Steam"
--- The test runner supplies existing folders; avoid shell calls from Lua.
-package.loaded["mp.mailbox"]={default_dir=function() return arg[1] end}
-local opened,connected=0,0
+package.loaded["mp.mailbox"]={default_dir=function() return "test" end}
+local opened,connected,disconnected,retried=0,0,0,0
 package.loaded["mp.online"]={open=function() opened=opened+1;return true end}
+local stateText,files=nil,{}
+io.open=function(path,mode)
+    if mode=="rb" then if not stateText then return nil end;return {read=function() return stateText end,close=function() end} end
+    local content=""
+    return {write=function(_,s) content=content..s end,close=function() files[path]=content end}
+end
+os.rename=function(a,b) files[b]=files[a];files[a]=nil;return true end
+local function state(role,lobby)
+    stateText="updated\t"..now.."\nphase\tready\nmessage\tChoose a session\nrole\t"..(role or "idle").."\nlobby\t"..(lobby or "0").."\nplayers\t1\n"
+end
 local page=require("menu_online")
-page.init({connect=function() connected=connected+1 end,disconnect=function() end})
+local travel={phase="idle"}
+page.init({connect=function() connected=connected+1 end,disconnect=function() disconnected=disconnected+1 end,
+    map_status=function() return travel end,retry_map=function() retried=retried+1 end})
 local widgets,buttons,entries,messages={},{},{},{}
-local rebuilt=0
 local function widget(text)
     local w={text=text,alive=true}
-    function w:IsValid() assert(self.alive,'Stale native handle inspected');return true end
     function w:GetText() assert(self.alive,'Detached field read');return {ToString=function() return self.text end} end
     widgets[#widgets+1]=w;return w
 end
 local ui={construct=function() return widget() end,label=function(_,text) return widget(text) end,
-    vadd=function() end,hadd=function() end,
-    settext=function(w,text) assert(w.alive,'Detached status label written');w.text=text end,
+    card=function(_,title,subtitle) return widget(title) end,vadd=function() end,hadd=function() end,
+    settext=function(w,text) assert(w.alive,'Detached status written');w.text=text end,
     entry=function(_,text) local w=widget(text);entries[#entries+1]=w;return w end,
-    button=function(_,text,action) buttons[text]=action;return widget(text) end,
-    message=function(text) messages[#messages+1]=text end,
-    rebuild=function() rebuilt=rebuilt+1 end}
-local function state(text)
-    local f=assert(io.open(root.."/menu_state.txt","wb"));f:write(text);f:close()
+    button=function(_,text,fn) buttons[text]=fn;return widget(text) end,
+    action=function(_,text,fn) buttons[text]=fn end,
+    message=function(text) messages[#messages+1]=text end,rebuild=function() end}
+local function mount()
+    page.unmount(true)
+    for _,w in ipairs(widgets) do w.alive=false end
+    widgets={};buttons={};entries={};page.build(ui,{})
 end
-page.build(ui,{})
-entries[1].text="My session";entries[2].text="109775244182498723"
-buttons['START STEAM CONNECTION']();assert(opened==1 and connected==0)
-buttons['START STEAM CONNECTION']();assert(opened==1,'Do not spawn duplicate helpers while starting')
-now=1031;page.tick('Multiplayer');assert(messages[#messages]:find('did not become ready'))
-now=1032;page.tick('Multiplayer');assert(messages[#messages]:find('did not become ready'))
-page.unmount(true)
-for _,w in ipairs(widgets) do w.alive=false end
-page.tick('Movement')
-page.build(ui,{})
-assert(entries[3].text=='My session' and entries[4].text=='109775244182498723','Preserve drafts before removing widgets')
-buttons['START STEAM CONNECTION']();assert(opened==2)
-state('updated\t1033\nphase\terror\nmessage\tSteam startup failed: Steam is offline\n')
-now=1033;page.tick('Multiplayer');assert(messages[#messages]:find('Steam is offline'))
-now=1040;page.tick('Multiplayer');assert(messages[#messages]:find('Steam is offline'),'Keep startup errors visible beyond heartbeat expiry')
-buttons['START STEAM CONNECTION']();assert(opened==3)
-state('updated\t1041\nphase\tready\nmessage\tChoose Host or Friends\nrole\tidle\nplayers\t0\n')
-now=1041;page.tick('Multiplayer');assert(connected==1 and messages[#messages]:find('Steam ready'))
-assert(not messages[#messages]:find('starting'),'Replace the starting footer on readiness')
-assert(rebuilt==0,'Heartbeat changes must not rebuild native widgets')
--- Travel can destroy native objects before the menu notices. Never read drafts then.
-for _,w in ipairs(widgets) do w.alive=false end
-page.unmount(false);page.build(ui,{})
-print('Multiplayer stale-widget lifecycle, draft preservation, launch timeout, errors and readiness passed')
+mount();assert(opened==1 and #entries==0)
+assert(buttons.JOIN and buttons.HOST and not buttons['START STEAM CONNECTION'])
+assert(not buttons['HOST SESSION'] and not buttons['JOIN CODE'],'Progressive disclosure keeps the initial view clean')
+buttons.HOST();mount();assert(#entries==1 and buttons['HOST SESSION'])
+entries[1].text="My session";buttons['HOST SESSION']();assert(opened==1,'Deduplicate startup while preserving intended host action')
+page.unmount(true);for _,w in ipairs(widgets) do w.alive=false end
+now=1001;state();page.update() -- closed menu still finishes startup and request
+assert(connected>=1)
+local hosted=false
+for _,text in pairs(files) do if text:find('action\thost') and text:find('name\tMy session') then hosted=true end end
+assert(hosted,'Complete the requested action after Steam becomes ready without reopening the menu')
+now=1002;state('host','123');page.update();mount()
+assert(buttons['LEAVE SESSION'] and not buttons.HOST and #entries==0)
+buttons['LEAVE SESSION']();page.update();assert(disconnected==1)
+now=1003;state();page.update();mount();assert(entries[1].text=='My session')
+buttons.JOIN();mount();assert(#entries==0 and buttons['JOIN WITH A CODE'])
+buttons['JOIN WITH A CODE']();mount();assert(#entries==1 and buttons['JOIN CODE'])
+entries[1].text='109775244182498723';mount();assert(entries[1].text=='109775244182498723')
+now=1004;state('join','123');page.update();travel={phase='loading',message='Loading Observatory...'};mount();page.tick('Multiplayer')
+local seen=false;for _,w in ipairs(widgets) do if w.text=='Loading Observatory...' then seen=true end end;assert(seen)
+travel={phase='failed',message='Retry loading'};mount();buttons['RETRY MAP LOAD']();assert(retried==1)
+-- Never read native fields after world teardown.
+for _,w in ipairs(widgets) do w.alive=false end;page.unmount(false)
+now=1010;stateText=nil;page.update();mount();buttons['RETRY CONNECTION']();assert(opened==2)
+now=1041;page.update();mount();assert(buttons['RETRY CONNECTION'])
+page.tick('Multiplayer');seen=false;for _,w in ipairs(widgets) do if w.text and w.text:find('Steam did not respond') then seen=true end end;assert(seen)
+print('Clean Join/Host views, hidden code entry, automatic startup, deferred actions, travel status and widget lifetime passed')
