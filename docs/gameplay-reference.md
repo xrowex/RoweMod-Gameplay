@@ -13,7 +13,7 @@ Download the full release ZIP (not GitHub's Source code archive), extract it, cl
 
 Launch Rollout from Steam and press **F5**. Updates check automatically at game launch and apply after the game and companion close. See [update behavior and release publishing](auto-updates.md).
 
-Default is **1.25×** casual + sprint speed increase. Edit `ue4ss\Mods\RoweModGameplay\Scripts\config.lua` and press **F8** in-game.
+Default is **1.25×** casual + sprint acceleration. This does not directly multiply maximum speed. Edit `ue4ss\Mods\RoweModGameplay\Scripts\config.lua` and press **F8** in-game.
 
 ## In the game
 
@@ -64,9 +64,12 @@ Then load the **same map** and enter `rowemod mp on` in each game console (F10).
 
 On `NewMainCharacter` (and matching fields on `SettingsSaveGame` so the pause menu stays in sync):
 
+The table below is the legacy manual override surface, not a list of verified sliders. Use F5 for audited controls. Several legacy fields are runtime state or lack confirmed character support; see the [slider audit](slider-audit.md) before setting them manually.
+
 | Group | `config.lua` keys |
 |---|---|
 | Speed | `speedMultiplier`, `casualSpeedIncrease`, `sprintSpeedIncrease`, `maxLinearForce`, `maxAngularForce`, `gravity` |
+| World gravity | `gravityMultiplier` (0.25–2, scales this map's physics and synchronizes jump prediction; legacy `gravity` only changes prediction) |
 | Jump | `jumpVelocity`, `minJumpHeight`, `maxJumpHeight`, `jumpPrepSteering` |
 | Grind / balance | `grindMagnetStrength`, `grindMagnetSize`, `balanceIntensity`, `balanceDriftIncrease`, `balanceDriftStrength`, `baseBalanceDrift`, `requiresBalance`, `showBalanceMeter`, `enableGrindSparks` |
 | Spin / flip | `maxSpinSpeed`, `maxFlipSpeed`, `spinMultiplier`, `flipMultiplier`, `grabSpinSpeedDivider` |

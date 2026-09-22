@@ -2,6 +2,8 @@
 package.path="ue4ss/Mods/RoweModGameplay/Scripts/?.lua;"..package.path
 local objects,keys={},{}
 local methods={}
+local unmounted=false
+function methods:ClearChildren() assert(unmounted,'Release page references before detaching widgets');unmounted=false end
 function methods:IsValid() return true end
 function methods:GetAddress() return self.address or 1 end
 function methods:SetText(value) self.text=value end
@@ -41,14 +43,17 @@ local data={speedMultiplier=1.25,triggerSteering=false}
 local writes=0
 local menu=require('rowe_menu')
 menu.init({get=function(key) return data[key] end,
+    unmount=function() unmounted=true end,
     set=function(key,value) writes=writes+1;data[key]=value end,
     reset=function() end,save=function() return true end})
 keys.F5();assert(menu.is_open() and pc.move==1 and pc.look==1 and pc.bShowMouseCursor)
 tick();assert(writes==0,'Opening must never clamp or write game values')
 local slider
 for _,o in ipairs(objects) do if o.kind=='/Script/UMG.Slider' and o.value~=nil then slider=o;break end end
-assert(slider);slider:SetValue(1.5);tick();assert(data.speedMultiplier==1.5 and writes==1)
+assert(slider);slider:SetValue(1.531525);tick();assert(data.speedMultiplier==1.55 and writes==1)
 tick();assert(writes==1,'Unchanged values must not repeatedly apply settings')
+slider:SetValue(1.551);tick();assert(writes==1,'Mouse jitter inside the same step must not write again')
+assert(slider:GetValue()==1.55)
 local toggle
 for _,o in ipairs(objects) do if o.kind=='/Script/UMG.Button' and o.content and o.content.text=='OFF' then toggle=o end end
 assert(toggle);toggle.hovered=true;keys.LEFT_MOUSE_BUTTON();tick()

@@ -1,17 +1,21 @@
 -- Edit these numbers, save, then press F8 in-game (or type: rowemod reload).
--- 1.0 is the game default. 1.5 is fifty percent faster.
+-- Acceleration 1.0 is the game default. 1.5 applies fifty percent more acceleration.
 -- Leave a field as nil to leave it alone.
+-- Prefer F5 for audited controls. Advanced fields below include runtime state;
+-- see docs/slider-audit.md before overriding them manually.
 
 return {
     -- Multiplies CasualSpeedIncrease and SprintSpeedIncrease together.
     speedMultiplier = 1.25,
+    -- F5 > Movement > Gravity: 0.25..2.0 times this map's physics gravity.
+    gravityMultiplier = nil,
 
     -- Speed (overrides the multiplier for that field if set)
     casualSpeedIncrease = nil,
     sprintSpeedIncrease = nil,
     maxLinearForce = nil,
     maxAngularForce = nil,
-    gravity = nil,
+    gravity = nil, -- legacy jump-prediction override only; use gravityMultiplier instead
 
     -- Jump
     jumpVelocity = nil,

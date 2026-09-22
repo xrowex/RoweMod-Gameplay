@@ -26,7 +26,8 @@ function M.open(lobby, background)
             f:close()
             local argument = lobby and (" +connect_lobby " .. lobby) or ""
             if background then argument = argument .. " --background" end
-            os.execute('start "" /B wscript.exe "' .. path .. '"' .. argument)
+            local started=os.execute('start "" /B wscript.exe "' .. path .. '"' .. argument)
+            if not started then return false,"Could not launch RoweMod Online. Open START ONLINE.cmd for details." end
             return true
         end
     end

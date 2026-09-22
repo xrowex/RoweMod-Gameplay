@@ -4,6 +4,7 @@ local M = {}
 local helpers = require("UEHelpers")
 local dispatch = require("game_thread")
 local schema = require("menu_schema")
+local limits = require("menu_values")
 local S = {open=false, page="Movement", serial=0, controls={}, selected=1}
 local C = {
     panel={R=.025,G=.025,B=.03,A=.98}, row={R=.09,G=.09,B=.105,A=1},
@@ -64,6 +65,11 @@ local function message(text)
     print("[RoweMenu] "..S.message)
 end
 local build_page
+local function release_page(capture)
+    -- Drop native widget references while the page still owns its children.
+    if S.api.unmount then S.api.unmount(capture~=false) end
+    S.controls={};S.status=nil
+end
 local function change_page(page)
     S.page=page; S.rebuild=true
 end
@@ -100,10 +106,12 @@ local function setting(parent,item)
         slide:SetValue(math.max(min,math.min(max,value)))
         slide:SetSliderHandleColor(C.yellow);slide:SetSliderBarColor(C.muted)
         local holder=box(row,nil,230);holder:SetContent(slide);hadd(row,holder)
-        local text=label(row,pretty(value),19,C.yellow)
-        local width=box(row,nil,85);width:SetContent(text);hadd(row,width)
+        local text=label(row,limits.in_range(item,value) and limits.format(item,value) or "RESET",17,C.yellow)
+        local width=box(row,nil,115);width:SetContent(text);hadd(row,width)
+        pcall(function() slide:SetToolTipText(FText((item.hint or "").." Range: "..
+            limits.format(item,min).." - "..limits.format(item,max)..". Stock: "..limits.format(item,item.default))) end)
         S.controls[#S.controls+1]={kind="slider",widget=slide,text=text,key=key,
-            min=min,max=max,step=item[5],last=slide:GetValue()}
+            min=min,max=max,step=item[5],item=item,last=slide:GetValue(),applied=value}
     end
     local reset=button(row,"RESET",function()
         S.api.reset(key);S.rebuild=true;message(title.." reset")
@@ -111,7 +119,7 @@ local function setting(parent,item)
     local w=box(row,nil,100);w:SetContent(reset);hadd(row,w)
 end
 build_page=function()
-    S.controls={};S.selected=1
+    release_page(true);S.selected=1
     S.content:ClearChildren()
     local header=construct("HorizontalBox",S.content)
     hadd(header,label(header,"ROWEMOD",34,C.yellow),true)
@@ -148,8 +156,9 @@ build_page=function()
     vadd(S.content,label(S.content,"F5 close   /   Mouse or arrows + Enter   /   D-pad + A",13,C.muted))
     S.click=false;S.rebuild=false
 end
-function M.close()
+function M.close(discard)
     if not S.open then return end
+    release_page(not discard)
     S.open=false
     if valid(S.root) then S.root:SetVisibility(1) end
     local pc=S.pc
@@ -170,6 +179,7 @@ local function open_menu()
     local world=helpers.GetWorld()
     if not valid(world) then return end
     if valid(S.root) and S.world and S.world~=world:GetAddress() then
+        release_page(false)
         S.root:RemoveFromParent();S.root=nil
     end
     if not valid(S.root) then
@@ -204,7 +214,8 @@ end
 function M.open()
     local ok,err=pcall(open_menu)
     if not ok then
-        pcall(M.close)
+        pcall(M.close,true)
+        release_page(false)
         if valid(S.root) then S.root:RemoveFromParent() end
         S.root=nil;S.content=nil
         print("[RoweMenu] open failed: "..tostring(err))
@@ -240,7 +251,7 @@ local function tick()
     if not S.open then return end
     local world=helpers.GetWorld()
     if not valid(world) or world:GetAddress()~=S.world or not valid(S.root) then
-        M.close();if valid(S.root) then S.root:RemoveFromParent() end;S.root=nil;return
+        M.close(true);if valid(S.root) then S.root:RemoveFromParent() end;S.root=nil;return
     end
     if S.rebuild then build_page();return end
     local click=S.click;S.click=false
@@ -248,7 +259,12 @@ local function tick()
         if c.kind=="slider" then
             local value=c.widget:GetValue()
             if math.abs(value-c.last)>.000001 then
-                c.last=value;S.api.set(c.key,value);settext(c.text,pretty(value))
+                value=limits.snap(c.item,value)
+                if value then
+                    c.widget:SetValue(value);c.last=c.widget:GetValue()
+                    if math.abs(value-c.applied)>.000001 then S.api.set(c.key,value);c.applied=value end
+                    settext(c.text,limits.format(c.item,value))
+                end
             end
         elseif c.kind=="button" then
             local down=c.widget:IsPressed()
@@ -258,7 +274,7 @@ local function tick()
             c.down=down
         end
     end
-    if S.api.tick and S.open then S.api.tick(S.page) end
+    if S.api.tick and S.open and not S.rebuild then S.api.tick(S.page) end
 end
 function M.init(api)
     S.api=api

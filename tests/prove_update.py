@@ -68,7 +68,7 @@ while not done.exists(): time.sleep(.1)
         assert (game/'ue4ss/Mods/RoweModGameplay/Scripts/rowe_menu.lua').is_file()
         assert list((root/'AppData/RoweMod/Backups').glob('Install-*/receipt.json'))
         # Run the packaged standalone updater against the actual GitHub endpoint.
-        # The repository currently has no published release; this must be nonfatal.
+        # A current/newer fixture must not downgrade to the public stable release.
         exe=game/'RoweModOnline/RoweModOnline.exe'
         run=subprocess.run([str(exe),'--check-updates','--game',str(game/'RollerSkate-Win64-Shipping.exe')],env=env,timeout=60)
         assert run.returncode==0
@@ -76,7 +76,7 @@ while not done.exists(): time.sleep(.1)
         assert live['message'] in ('No published update release yet','Up to date'),live
         proof=dict(root=str(root),held_parent_prevented_install=True,deferred_install='0.4.0 -> '+target_version,
                    ue4ss_installed=True,backup_receipt=True,packaged_exe_live_check=live)
-        (repo/'docs/proofs/auto-update-20260921.json').write_text(json.dumps(proof,indent=2)+'\n')
+        (repo/('docs/proofs/auto-update-'+target_version+'.json')).write_text(json.dumps(proof,indent=2)+'\n')
         print(json.dumps(proof,indent=2))
     finally:
         done.touch()

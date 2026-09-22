@@ -1,10 +1,10 @@
-# RoweMod 0.5.1 - install and play
+# RoweMod 0.5.2 - install and play
 
 1. Extract the entire ZIP to a normal folder. Close Rollout and RoweMod Online.
 2. Double-click **install.cmd**. It finds the Steam game, installs the bundled tested UE4SS runtime, and installs RoweMod. If Windows needs administrator access to the game folder, accept the installer prompt. No separate UE4SS or Python download is needed.
 3. Launch Rollout from Steam, load a park, and press **F5**.
 4. Gameplay changes apply live. **Save Settings** keeps them for next time.
-5. For multiplayer, open the Multiplayer tab, choose **Start Steam Connection**, then **Host Friends** or **Find Friends** and Join. Both players load the same map and need their own Steam account and copy of Rollout.
+5. For multiplayer, open the Multiplayer tab, choose **Start Steam Connection**, wait for **Steam ready**, then **Host Friends** or **Find Friends** and Join. Both players load the same map and need their own Steam account and copy of Rollout. Starting Steam alone does not join a session.
 
 You can also use **START ONLINE.cmd** for the desktop browser and launcher. The hidden in-game companion closes automatically after Rollout exits; the visible desktop companion stays open until you close it.
 
@@ -14,6 +14,8 @@ This package includes UE4SS 3.0.1 Beta #0, commit f6d5f942, pinned to the runtim
 
 Check these in order:
 
+- Start Steam Connection: the menu should show Steam ready or an error, with a 30-second timeout if the companion never responds.
+- Switch to Movement and back to Multiplayer several times. The session name and lobby-ID drafts should remain, without a crash. This exercises the repaired widget lifecycle; native crash acceptance still needs a real game test.
 - Both browsers show one remote skater and increasing receive counts.
 - One player stands still while the other moves/jumps; the standing player stays independent.
 - Switch roles and repeat, then change a stock outfit/boots and check both views.
@@ -27,6 +29,8 @@ If joining fails, report the browser's exact status message. For connected-but-
 invisible players, enter `rowemod mp status` in the F10 console on both PCs.
 Local diagnostics are in `%TEMP%\RoweModMP\Steam\steam_status.json` and the game's
 `ue4ss\UE4SS.log`. Nothing is uploaded automatically.
+
+For a startup failure, also include the exact in-menu error or `%TEMP%\RoweModMP\Steam\online-error.txt` if that file exists. If the game crashes again, include the matching UE4SS log and crash report; the generic Fatal error dialog alone cannot identify the cause.
 
 Public sessions and Steam overlay Join Game are also implemented; test those
 after the browser/direct-ID connection works. The host must keep playing and

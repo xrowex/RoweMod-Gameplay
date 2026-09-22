@@ -6,6 +6,9 @@
 
 local UEHelpers = require("UEHelpers")
 local game_thread = require("game_thread")
+local menu_values = require("menu_values")
+local gravity_control = require("gravity")
+local gravity_error
 
 local mp_session = nil
 pcall(function()
@@ -106,6 +109,16 @@ local function load_config()
         config = loaded
         local saved = require("menu_store").load()
         for key, value in pairs(saved) do config[key] = value end
+        for key,item in pairs(menu_values.items) do
+            if item[3] ~= "bool" and config[key] ~= nil then
+                if not menu_values.in_range(item,config[key]) then
+                    log("resetting out-of-range " .. key .. " to " .. tostring(item.default))
+                    config[key] = item.default
+                else
+                    config[key] = menu_values.snap(item,config[key])
+                end
+            end
+        end
         if type(config.speedMultiplier) ~= "number" then
             config.speedMultiplier = 1.0
         end
@@ -361,6 +374,9 @@ local function apply_all(silent)
         total = total + apply_one(pawn)
     end
     total = total + apply_saves()
+    local gravity_ok,detail=gravity_control.apply(config.gravityMultiplier,skaters)
+    if not gravity_ok and detail~=gravity_error then log(detail) end
+    gravity_error=not gravity_ok and detail or nil
     if not silent then
         notify(string.format("speed x%.2f  (%d fields)", config.speedMultiplier or 1.0, total))
     end
@@ -865,7 +881,7 @@ RegisterConsoleCommandHandler("rowemod", function(FullCommand, Parameters, Ar)
     if cmd == "speed" or cmd == "x" then
         local n = tonumber(Parameters[2])
         if n then
-            config.speedMultiplier = math.max(0.2, math.min(5.0, n))
+            config.speedMultiplier = menu_values.snap(menu_values.items.speedMultiplier, n) or 1.0
         end
         apply_all(false)
         return true
@@ -908,6 +924,10 @@ local menu_ok, menu_error = pcall(function()
     end
     local api = {}
     function api.get(key)
+        if key=="gravityMultiplier" then
+            if not gravity_control.available() then return nil end
+            return config[key] or 1.0
+        end
         if config[key] ~= nil then return config[key] end
         local pawn = require("mp.capture").local_pawn()
         if not pawn then return nil end
@@ -921,8 +941,12 @@ local menu_ok, menu_error = pcall(function()
         if item[3] == "bool" then
             if type(value) ~= "boolean" then return false end
         else
-            if type(value) ~= "number" or value ~= value then return false end
-            value = math.max(item[3], math.min(item[4], value))
+            value = menu_values.snap(item,value)
+            if value == nil then return false end
+        end
+        if key=="gravityMultiplier" then
+            local ok,detail=gravity_control.apply(value,find_skaters())
+            if not ok then log(detail);return false end
         end
         config[key] = value
         apply_all(true)
@@ -930,19 +954,26 @@ local menu_ok, menu_error = pcall(function()
     end
     function api.reset(key)
         if not fields[key] then return end
+        if key=="gravityMultiplier" then config[key]=nil;apply_all(true);return end
         if key == "speedMultiplier" then config[key] = 1.0; apply_all(true); return end
         config[key] = nil
         local field = NUMBER_FIELDS[key] or BOOL_FIELDS[key]
         for _, actor in ipairs(find_skaters()) do
             local snap = originals[pawn_id(actor)]
             if snap and snap[field] ~= nil then
-                if BOOL_FIELDS[key] then write_bool(actor,field,snap[field]) else write_num(actor,field,snap[field]) end
+                if BOOL_FIELDS[key] then write_bool(actor,field,snap[field]) else
+                    local value=menu_values.in_range(fields[key],snap[field]) and snap[field] or fields[key].default
+                    write_num(actor,field,value)
+                end
             end
         end
         for _, save in ipairs(find_of(SAVE_CLASS_NAMES)) do
             local snap = save_originals[pawn_id(save)]
             if snap and snap[field] ~= nil then
-                if BOOL_FIELDS[key] then write_bool(save,field,snap[field]) else write_num(save,field,snap[field]) end
+                if BOOL_FIELDS[key] then write_bool(save,field,snap[field]) else
+                    local value=menu_values.in_range(fields[key],snap[field]) and snap[field] or fields[key].default
+                    write_num(save,field,value)
+                end
             end
         end
         apply_all(true)
@@ -960,6 +991,7 @@ local menu_ok, menu_error = pcall(function()
     })
     api.multiplayer = online_page.build
     api.tick = online_page.tick
+    api.unmount = online_page.unmount
     menu.init(api)
     rowe_menu = menu
 end)

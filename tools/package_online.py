@@ -18,7 +18,7 @@ def main():
              'tools/deps/RoweModOnline.exe', 'tools/mp_online.cmd', 'tools/start_online.vbs',
              'tools/menu_control.py', 'tools/mp_online.py', 'tools/steam_mp.py', 'tools/steamworks.py', 'tools/rowemod_mp.py',
              'docs/steam-online.md', 'docs/multiplayer.md', 'docs/steam-friend-test.md',
-             'docs/auto-updates.md', 'docs/in-game-menu.md', 'docs/licenses/ModMenu.txt', 'docs/third-party-online.md', 'docs/proofs/steam-probe-20260921.json',
+             'docs/auto-updates.md', 'docs/in-game-menu.md', 'docs/slider-audit.md', 'docs/licenses/ModMenu.txt', 'docs/third-party-online.md', 'docs/proofs/steam-probe-20260921.json',
              'docs/proofs/steam-native-20260921.json']
     files = {name: repo / name for name in names}
     runtime = json.loads((repo/'tools/ue4ss-runtime.json').read_text())

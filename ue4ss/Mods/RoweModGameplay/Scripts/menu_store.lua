@@ -1,9 +1,7 @@
 -- Data-only settings overlay; never execute a saved preset as Lua.
 local M = {}
-local known = {}
-for _, group in ipairs(require("menu_schema")) do
-    for _, item in ipairs(group.items) do known[item[1]] = item end
-end
+local limits = require("menu_values")
+local known = limits.items
 function M.path()
     return (os.getenv("LOCALAPPDATA") or os.getenv("TEMP") or "."):gsub("\\", "/") .. "/RoweMod/gameplay-settings.txt"
 end
@@ -18,7 +16,11 @@ function M.decode(text)
                 if raw == "true" then values[key] = true elseif raw == "false" then values[key] = false end
             else
                 local value = tonumber(raw)
-                if value and value == value and value >= item[3] and value <= item[4] then values[key] = value end
+                if limits.finite(value) then
+                    -- Old menus allowed enormous values. Recover to stock, never to
+                    -- the new maximum. Keep the original file intact until Save.
+                    values[key] = limits.in_range(item,value) and limits.snap(item,value) or item.default
+                end
             end
         end
     end
@@ -32,9 +34,13 @@ function M.load()
 end
 function M.save(config)
     local rows = {}
-    for key in pairs(known) do
-        if type(config[key]) == "number" or type(config[key]) == "boolean" then
-            rows[#rows + 1] = key .. "=" .. tostring(config[key])
+    for key,item in pairs(known) do
+        local value=config[key]
+        if item[3]=="bool" then
+            if type(value)=="boolean" then rows[#rows+1]=key.."="..tostring(value) end
+        elseif limits.finite(value) then
+            value=limits.in_range(item,value) and limits.snap(item,value) or item.default
+            rows[#rows+1]=key.."="..tostring(value)
         end
     end
     table.sort(rows)

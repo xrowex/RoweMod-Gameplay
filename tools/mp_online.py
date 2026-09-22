@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import threading
+import traceback
 import uuid
 from pathlib import Path
 
@@ -244,8 +245,6 @@ class OnlineWindow:
 
 
 def main():
-    import tkinter as tk
-    from tkinter import messagebox
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--steam-api')
     parser.add_argument('--game')
@@ -264,10 +263,14 @@ def main():
         if lobby or not args.background:
             request(root, 'join' if lobby else 'show', **({'lobby': str(lobby)} if lobby else {}))
         return
-    window = tk.Tk()
-    window.withdraw()
-    bridge = steam = None
+    window = bridge = steam = None
+    failed = False
     try:
+        menu_control.publish_startup(root, 'starting', 'Connecting to Steam...')
+        import tkinter as tk
+        from tkinter import messagebox
+        window = tk.Tk()
+        window.withdraw()
         steam = Steam(args.steam_api)
         bridge = SteamBridge(steam, root)
         OnlineWindow(window, bridge, args.game, args.background)
@@ -278,13 +281,21 @@ def main():
             window.deiconify()
         window.mainloop()
     except Exception as e:
-        messagebox.showerror('RoweMod Online', str(e), parent=window)
+        failed = True
+        menu_control.publish_startup(root, 'error', 'Steam startup failed: ' + str(e))
+        (root / 'online-error.txt').write_text(traceback.format_exc(), encoding='utf-8')
+        if not args.background and window is not None:
+            messagebox.showerror('RoweMod Online', str(e), parent=window)
     finally:
-        if bridge:
-            bridge.close()
-        elif steam:
-            steam.close()
-        lock.close()
+        try:
+            if bridge:
+                bridge.close()
+            elif steam:
+                steam.close()
+        finally:
+            lock.close()
+            if not failed:
+                menu_control.publish_startup(root, 'closed', 'Steam companion is closed. Start Steam connection.')
 
 
 if __name__ == '__main__':

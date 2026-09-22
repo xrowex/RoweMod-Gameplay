@@ -70,7 +70,7 @@ def consume(bridge, show):
 
 
 def publish(bridge):
-    values = dict(updated=int(time.time()), message=bridge.message, role=bridge.mode,
+    values = dict(updated=int(time.time()), phase='ready', message=bridge.message, role=bridge.mode,
                   map=bridge.map, lobby=str(bridge.lobby or 0), peers=len(bridge.peers),
                   players=len(bridge.members), busy=int(bool(bridge.busy)))
     lines = ['\t'.join((key, encode(value))) for key, value in values.items()]
@@ -81,4 +81,14 @@ def publish(bridge):
     path = bridge.box.root / 'menu_state.txt'
     tmp = path.with_suffix('.tmp')
     tmp.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    tmp.replace(path)
+
+
+def publish_startup(root, phase, message):
+    """Expose bootstrap failures even when Steam/Tk never reaches its update loop."""
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / 'menu_state.txt'
+    tmp = path.with_suffix('.tmp')
+    values = dict(updated=int(time.time()), phase=phase, message=str(message)[:2000])
+    tmp.write_text(''.join(key + '\t' + encode(value) + '\n' for key, value in values.items()), encoding='utf-8')
     tmp.replace(path)
