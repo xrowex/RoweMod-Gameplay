@@ -1,4 +1,4 @@
-# RoweMod 0.5.4 - install and play
+# RoweMod 0.5.5 - install and play
 
 1. Extract the entire ZIP to a normal folder. Close Rollout and RoweMod Online.
 2. Double-click **install.cmd**. It finds the Steam game, installs the bundled tested UE4SS runtime, and installs RoweMod. If Windows needs administrator access to the game folder, accept the installer prompt. No separate UE4SS or Python download is needed.

@@ -4,7 +4,7 @@ In-game gameplay settings and Steam multiplayer. Unofficial fan mod.
 
 ## Install
 
-1. [Download **RoweMod-0.5.4.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
+1. [Download **RoweMod-0.5.5.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
 2. Extract the whole ZIP. Close Rollout and RoweMod Online.
 3. Double-click **install.cmd**. UE4SS is included; no Python installation needed.
 4. Launch Rollout from Steam, load a park, and press **F5**.

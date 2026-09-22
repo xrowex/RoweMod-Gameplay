@@ -63,6 +63,24 @@ class UpdateTests(unittest.TestCase):
                 with self.assertRaises(ValueError): u.unpack(path, Path(folder)/'out', manifest)
                 self.assertFalse((Path(folder)/'out').exists())
 
+    def test_pending_package_reused_only_for_own_game_and_intact_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            game = root/'Game'
+            stage = root/'release-0.6.0-test'
+            stage.mkdir()
+            archive, update = self.archive(stage)
+            u.unpack(archive, stage/'package', update)
+            marker = stage/'.rowemod-update.json'
+            marker.write_text(json.dumps(dict(owner='RoweMod-Gameplay', game=str(game), version='0.6.0')))
+            self.assertEqual(u.prepared_update(root, game, update), stage/'package')
+            self.assertIsNone(u.prepared_update(root, root/'OtherGame', update))
+            (stage/'package/install.ps1').write_text('changed')
+            self.assertIsNone(u.prepared_update(root, game, update))
+            u.unpack(archive, stage/'package', update)
+            archive.write_bytes(b'damaged')
+            self.assertIsNone(u.prepared_update(root, game, update))
+
     def test_packaged_version_must_match_release(self):
         with tempfile.TemporaryDirectory() as folder:
             path, manifest = self.archive(folder)

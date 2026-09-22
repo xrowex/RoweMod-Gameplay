@@ -85,7 +85,7 @@ if (Test-Path -LiteralPath $jsonPath) {
     }
     Add-Text 'ue4ss/Mods/mods.json' (ConvertTo-Json -InputObject @($entries) -Depth 10)
 }
-foreach ($name in @('rowemod_mp.py','steamworks.py','steam_mp.py','mp_online.py','menu_control.py','online_updater.py','apply_update.ps1','start_online.vbs')) {
+foreach ($name in @('rowemod_mp.py','steamworks.py','steam_mp.py','mp_online.py','menu_control.py','online_updater.py','apply_update.ps1','cleanup_versions.ps1','start_online.vbs')) {
     Add-Payload "RoweModOnline/$name" (Join-Path $here "tools\$name")
 }
 Add-Payload 'RoweModOnline/RoweModOnline.exe' (Join-Path $here 'tools\deps\RoweModOnline.exe')
@@ -131,6 +131,20 @@ try {
 }
 $version = (Get-Content -LiteralPath (Join-Path $here 'version.json') -Raw | ConvertFrom-Json).version
 @{version=$version;game=$win64;ue4ss=$manifest.build;backup=$backup;files=@($plan.Keys)} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'receipt.json') -Encoding UTF8
+# Cleanup is post-success maintenance and must never trigger rollback.
+try {
+    # Claim the successfully installed current package even when it was staged
+    # by an older updater that did not yet write ownership markers.
+    $sourceStage = Split-Path $here
+    if ((Split-Path $here -Leaf) -eq 'package' -and
+        (Split-Path $sourceStage -Leaf) -match '^release-\d+\.\d+\.\d+-[a-zA-Z0-9_-]+$' -and
+        [string]::Equals((Split-Path $sourceStage),(Join-Path $state 'Updates'),[StringComparison]::OrdinalIgnoreCase)) {
+        @{owner='RoweMod-Gameplay';game=$win64;version=$version} | ConvertTo-Json |
+            Set-Content -LiteralPath (Join-Path $sourceStage '.rowemod-update.json') -Encoding UTF8
+    }
+    & (Join-Path $here 'tools\cleanup_versions.ps1') -GameDirectory $win64 -InstalledVersion $version
+}
+catch { Write-Warning ('Installed successfully; cleanup deferred: ' + $_.Exception.Message) }
 Write-Host "Installed RoweMod $version with UE4SS $($manifest.build)."
 Write-Host "Backup: $backup"
 Write-Host 'Launch Rollout from Steam. F5 opens gameplay and multiplayer.'

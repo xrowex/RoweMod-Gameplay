@@ -10,6 +10,10 @@ A separate worker waits until Rollout and RoweMod Online exit. It then runs the 
 
 The installer snapshots every destination file before replacement, preserves existing `config.lua`, saved menu settings and unrelated mods, and attempts rollback on a copy failure. An installation needing elevation is not silently elevated by the updater: run the staged `install.cmd` once if its status says administrator access is needed. The game directory must remain closed during installation.
 
+After a successful installation, RoweMod removes its completed installation copies and updater-owned downloads/extracted packages. It retains the **two newest successful recovery backups per game installation**, plus failed/incomplete backups. Cleanup skips newer pending updates, active downloads, unknown folders and linked directories. It never scans Downloads, deletes your manually extracted ZIPs, or removes GitHub releases, other mods, saves or settings.
+
+Repeated update checks reuse an already verified pending package instead of downloading it again. The cache ownership markers start with 0.5.5; older unmarked download folders are left alone. Older successful installation-staging copies are recognized through their backup receipts.
+
 Status and recovery:
 
 - `%LOCALAPPDATA%\RoweMod\Updates\status.json`: checked/current/available version, pending package or failure details.

@@ -90,6 +90,36 @@ def unpack(archive, target, expected):
         z.extractall(target)
 
 
+def prepared_update(root, game, update):
+    """Reuse only a fully verified package owned by this game installation."""
+    for stage in sorted(root.glob('release-' + update['version'] + '-*'), reverse=True):
+        try:
+            if stage.resolve().parent != root.resolve() or stage.is_symlink():
+                continue
+            owner = json.loads((stage/'.rowemod-update.json').read_text(encoding='utf-8'))
+            if owner != dict(owner='RoweMod-Gameplay', game=str(game), version=update['version']):
+                continue
+            raw = (stage/'download.zip').read_bytes()
+            if len(raw) != update['bytes'] or hashlib.sha256(raw).hexdigest() != update['sha256']:
+                continue
+            package = stage/'package'
+            with zipfile.ZipFile(stage/'download.zip') as archive:
+                manifest_bytes = archive.read('manifest.json')
+                manifest = json.loads(manifest_bytes)['sha256']
+            if (package/'manifest.json').read_bytes() != manifest_bytes:
+                continue
+            for name, digest in manifest.items():
+                path = (package/name).resolve()
+                if os.path.commonpath([str(path), str(package.resolve())]) != str(package.resolve()):
+                    raise ValueError('Cached path outside package')
+                if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                    raise ValueError('Cached package changed')
+            return package
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+            continue
+    return None
+
+
 def check(game, read=fetch):
     game = Path(game).resolve()
     root = Path(os.environ['LOCALAPPDATA']) / 'RoweMod/Updates'
@@ -113,11 +143,15 @@ def check(game, read=fetch):
             update = select_update(release, current, read)
             if not update:
                 return status('Up to date')
-            stage = Path(tempfile.mkdtemp(prefix='release-' + update['version'] + '-', dir=str(root)))
-            archive = stage/'download.zip'
-            archive.write_bytes(read(update['url'], MAX_ZIP))
-            package = stage/'package'
-            unpack(archive, package, update)
+            package = prepared_update(root, game, update)
+            if package is None:
+                stage = Path(tempfile.mkdtemp(prefix='release-' + update['version'] + '-', dir=str(root)))
+                (stage/'.rowemod-update.json').write_text(json.dumps(dict(
+                    owner='RoweMod-Gameplay', game=str(game), version=update['version'])), encoding='utf-8')
+                archive = stage/'download.zip'
+                archive.write_bytes(read(update['url'], MAX_ZIP))
+                package = stage/'package'
+                unpack(archive, package, update)
             # Use the currently installed helper, not a program started from the downloaded ZIP.
             helper = game/'RoweModOnline/apply_update.ps1'
             powershell = Path(os.environ['SystemRoot'])/'System32/WindowsPowerShell/v1.0/powershell.exe'

@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--build-deps', type=Path, default=Path(os.environ['TEMP']) / 'RoweModOnline-build-deps')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
-    names = ['version.json', 'tools/steam_paths.ps1', 'tools/ue4ss-runtime.json', 'tools/online_updater.py', 'tools/apply_update.ps1', 'install.cmd', 'install.ps1', 'START ONLINE.cmd', 'LICENSE',
+    names = ['version.json', 'tools/steam_paths.ps1', 'tools/ue4ss-runtime.json', 'tools/online_updater.py', 'tools/apply_update.ps1', 'tools/cleanup_versions.ps1', 'install.cmd', 'install.ps1', 'START ONLINE.cmd', 'LICENSE',
              'tools/deps/RoweModOnline.exe', 'tools/mp_online.cmd', 'tools/start_online.vbs',
              'tools/menu_control.py', 'tools/mp_online.py', 'tools/steam_mp.py', 'tools/steamworks.py', 'tools/rowemod_mp.py',
              'docs/steam-online.md', 'docs/multiplayer.md', 'docs/steam-friend-test.md',
