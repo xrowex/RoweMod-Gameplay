@@ -110,7 +110,7 @@ The existing LAN launchers remain available separately.
 ## Diagnostics
 
 `%TEMP%\RoweModMP\Steam\steam_status.json` contains lobby, role, packet counters
-and the last status message. `game_status.txt` records game startup; the in-game
+and the last status message. It also records per-origin received poses, sent poses, deferred sends, rate-limit drops and numeric Steam movement-send results. `visibility.txt` in the same directory records every known player, last-pose age, applied pose count and map/asset errors, including players without an avatar. These files remain local. `game_status.txt` records game startup; the in-game
 status command shows current state. Game errors remain in `ue4ss\UE4SS.log`.
 No log files, Steam account identifiers or private lobby IDs are included in the
 friend test ZIP. No port-forwarding configuration is needed for the intended

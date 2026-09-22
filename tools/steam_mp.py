@@ -65,13 +65,14 @@ class RateLimit:
     def __init__(self):
         self.entries = {}
 
-    def allow(self, peer, size, now):
+    def allow(self, peer, size, now, streams=1):
         started, count, total = self.entries.get(peer, (now, 0, 0))
         if now - started >= 1:
             started, count, total = now, 0, 0
         count, total = count + 1, total + size
         self.entries[peer] = started, count, total
-        return count <= 160 and total <= 4 * 1024 * 1024
+        streams = max(1, min(7, streams))
+        return count <= 160 * streams and total <= 4 * 1024 * 1024 * streams
 
 
 class SteamBridge:
@@ -81,6 +82,10 @@ class SteamBridge:
         self.mode, self.message = 'idle', 'Choose Host, Friends, or Public sessions'
         self.members, self.peers, self.hellos = set(), {}, {}
         self.last_sequence, self.rate = {}, RateLimit()
+        self.origin_rate = RateLimit()
+        self.movement, self.last_sent = {}, {}
+        self.peer_stats, self.send_results = {}, {}
+        self.rate_drops = 0
         self.map, self.generation = 'unknown', 0
         # A quick process restart can rejoin before the host observes the leave.
         # Avoid restarting the transport sequence at zero in that case.
@@ -225,23 +230,59 @@ class SteamBridge:
             return
         self.sequence += 1
         packet = encode_packet(self.lobby, self.sequence, peer, line)
-        reliable = line.split('|', 1)[0] not in MOVEMENT
+        kind = line.split('|', 1)[0]
+        reliable = kind not in MOVEMENT
         for target in targets:
+            if not reliable:
+                # One newest pose per origin/destination, including the host.
+                # Sending relays immediately always put the host at the back of
+                # a congested NoDelay connection, potentially forever.
+                self.movement[target, peer, kind] = (packet, time.monotonic())
+                continue
             result = self.steam.send(target, packet, CHANNEL, reliable)
             if result == 1:
                 self.tx += 1
             elif reliable:
                 self.error('Steam send failed (result ' + str(result) + '); retrying with heartbeat')
-            else:
-                self.dropped += 1
+
+    def flush_movement(self):
+        now = time.monotonic()
+        targets = set(self.targets())
+        for key, (_, queued) in list(self.movement.items()):
+            if key[0] not in targets or int(key[1], 16) not in self.members or now - queued > .25:
+                del self.movement[key]
+        for target in sorted(targets):
+            keys = sorted(k for k in self.movement if k[0] == target)
+            previous = self.last_sent.get(target)
+            if previous is not None:
+                keys = [k for k in keys if k > previous] + [k for k in keys if k <= previous]
+            for key in keys:
+                packet, _ = self.movement[key]
+                result = self.steam.send(target, packet, CHANNEL, False)
+                result_key = str(result)
+                self.send_results[result_key] = self.send_results.get(result_key, 0) + 1
+                stats = self.peer_stats.setdefault(key[1], {'frames_in': 0, 'poses_sent': 0, 'send_deferred': 0})
+                if result == 1:
+                    self.tx += 1
+                    stats['poses_sent'] += 1
+                    self.last_sent[target] = key
+                    del self.movement[key]
+                else:
+                    stats['send_deferred'] += 1
+                    self.dropped += 1
+                    # Retain only the latest snapshot. Next tick starts after
+                    # the last successful origin, so one skater cannot hog it.
 
     def receive(self, sender, payload):
         if not self.lobby or sender not in self.members or sender == self.steam.user:
             return
         if self.mode == 'join' and sender != self.host:
             return
-        if not self.rate.allow(sender, len(payload), time.monotonic()):
+        now = time.monotonic()
+        streams = max(1, len(self.members) - 1) if self.mode == 'join' else 1
+        if not self.rate.allow(sender, len(payload), now, streams):
             self.dropped += 1
+            self.rate_drops += 1
             return
         parsed = decode_packet(payload, self.lobby)
         if not parsed:
@@ -257,6 +298,12 @@ class SteamBridge:
             return
         if kind == 'MREQ' and peer != peer_id(self.host):
             return
+        # The authenticated host carries several origins. Keep a separate
+        # per-origin cap without charging the whole lobby as a single player.
+        if not self.origin_rate.allow(peer, len(payload), now):
+            self.dropped += 1
+            self.rate_drops += 1
+            return
         key = (peer, kind)
         if sequence <= self.last_sequence.get(key, -1):
             return
@@ -265,6 +312,15 @@ class SteamBridge:
             return
         if kind == 'H':
             self.hellos[peer] = line
+        elif kind in {'M', 'MACK'} and peer in self.hellos:
+            parts = line.split('|')
+            if len(parts) >= 3:
+                hello = self.hellos[peer].split('|')
+                hello[4] = parts[2]
+                self.hellos[peer] = '|'.join(hello)
+        stats = self.peer_stats.setdefault(peer, {'frames_in': 0, 'poses_sent': 0, 'send_deferred': 0})
+        if kind == 'F':
+            stats['frames_in'] += 1
         self.peers[peer] = time.monotonic()
         self.rx += 1
         self.box.push_in(line, peer)
@@ -279,6 +335,10 @@ class SteamBridge:
         self.peers.pop(peer, None)
         self.hellos.pop(peer, None)
         self.rate.entries.pop(int(peer, 16), None)
+        self.origin_rate.entries.pop(peer, None)
+        self.peer_stats.pop(peer, None)
+        self.last_sent.pop(int(peer, 16), None)
+        self.movement = {k: v for k, v in self.movement.items() if k[1] != peer and k[0] != int(peer, 16)}
         self.last_sequence = {k: v for k, v in self.last_sequence.items() if k[0] != peer}
 
     def observe(self, line):
@@ -339,6 +399,7 @@ class SteamBridge:
             for peer, last in list(self.peers.items()):
                 if now - last > 8:
                     self.drop(peer)
+        self.flush_movement()
         if now >= self.next_status:
             self.next_status = now + 1
             self.write_status()
@@ -347,7 +408,9 @@ class SteamBridge:
         write_status(self.box.root, f'{self.mode} transport=steam lobby={self.lobby} peers={len(self.peers)} rx={self.rx} tx={self.tx}')
         (self.box.root / 'connected.txt').write_text('1\n' if self.peers else '0\n', encoding='ascii')
         status = {'transport': 'steam', 'role': self.mode, 'lobby': str(self.lobby), 'peers': len(self.peers),
-                  'rx': self.rx, 'tx': self.tx, 'dropped': self.dropped, 'map': self.map, 'message': self.message}
+                  'rx': self.rx, 'tx': self.tx, 'dropped': self.dropped, 'map': self.map, 'message': self.message,
+                  'rate_drops': self.rate_drops, 'pending_poses': len(self.movement),
+                  'movement_send_results': self.send_results, 'peer_streams': self.peer_stats}
         (self.box.root / 'steam_status.json').write_text(json.dumps(status, indent=2), encoding='utf-8')
 
     def leave(self):
@@ -367,6 +430,10 @@ class SteamBridge:
             self.drop(peer)
         self.members.clear()
         self.rate.entries.clear()
+        self.origin_rate.entries.clear()
+        self.movement.clear()
+        self.last_sent.clear()
+        self.peer_stats.clear()
         self.lobby = self.host = 0
         self.mode, self.message = 'idle', 'Disconnected'
         self.write_status()

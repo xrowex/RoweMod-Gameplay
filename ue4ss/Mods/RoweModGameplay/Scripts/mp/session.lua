@@ -30,6 +30,7 @@ local state = {
     playerName = "skater",
     peerNames = {},
     peerMaps = {},
+    peerHealth = {},
     localMapId = "unknown",
     sessionMapId = nil, -- host authority map when enabled
     isHost = false,
@@ -261,24 +262,63 @@ local function handle_packet(line, defaultPeer)
         state.ghosts:remove(peerId)
         state.peerNames[peerId] = nil
         state.peerMaps[peerId] = nil
+        state.peerHealth[peerId] = nil
         recompute_match()
         return
     end
 
     -- Gameplay packets only when maps agree (and peer is on our map).
     local peerMap = state.peerMaps[peerId]
+    local health
+    if msg.type == "frame" then
+        health=state.peerHealth[peerId] or {received=0,applied=0}
+        state.peerHealth[peerId]=health
+        health.received=health.received+1
+        health.lastFrame=os.time()
+        health.reason=health.lastError or "waiting for introduction"
+    end
     if require_same_map() then
         if not state.mapsMatched then
+            if health then health.reason="waiting for local map" end
             return
         end
         if peerMap and not mapinfo.same(peerMap, state.localMapId) then
+            if health then health.reason="peer on another map: "..tostring(peerMap) end
             return
         end
     end
 
     if msg.type == "frame" and peerMap and mapinfo.same(msg.mapId,state.localMapId) then
-        state.ghosts:apply_frame(peerId,msg)
+        local ok,applied=pcall(state.ghosts.apply_frame,state.ghosts,peerId,msg)
+        if not ok then
+            health.reason=tostring(applied):gsub("[\r\n]"," "):sub(1,512)
+            if health.lastError~=health.reason then log("avatar "..peerId..": "..health.reason) end
+            health.lastError=health.reason
+        elseif applied then
+            health.applied=health.applied+1;health.reason="visible";health.lastError=nil
+        elseif not health.lastError then health.reason="waiting for newer pose" end
+    elseif health and peerMap then
+        health.reason="pose on another map: "..tostring(msg.mapId)
     end
+end
+
+-- Plain-file evidence includes gated/failed players, not just existing actors.
+-- No engine object calls are needed to report a missing avatar.
+local function report_visibility()
+    if os.time()-(state.lastVisibilityReport or 0)<2 then return end
+    state.lastVisibilityReport=os.time()
+    local ids={};for peer in pairs(state.peerNames) do ids[peer]=true end
+    for peer in pairs(state.peerHealth) do ids[peer]=true end
+    local rows={M.status()}
+    for peer in pairs(ids) do
+        local h=state.peerHealth[peer] or {}
+        rows[#rows+1]=string.format("peer=%s name=%s map=%s received=%d applied=%d age=%s status=%s",peer,
+            tostring(state.peerNames[peer] or "?"):gsub("[\r\n]"," "),tostring(state.peerMaps[peer] or "?"),
+            h.received or 0,h.applied or 0,h.lastFrame and tostring(os.time()-h.lastFrame) or "never",
+            h.reason or "waiting for first pose")
+    end
+    local f=io.open(state.box.dir.."/visibility.txt","wb")
+    if f then f:write(table.concat(rows,"\n"));f:close() end
 end
 
 function M.is_active()
@@ -409,6 +449,7 @@ function M.start(cfg, notify_fn)
     state.lastTransformSent = 0
     state.peerNames = {}
     state.peerMaps = {}
+    state.peerHealth = {};state.lastVisibilityReport=nil
     state.mapsMatched = false
     state.pendingTravel = nil
     state.localMapId="unknown";state.sessionMapId=nil
@@ -474,6 +515,7 @@ function M.stop(notify_fn)
     state.prevSnap = nil
     state.peerNames = {}
     state.peerMaps = {}
+    state.peerHealth = {}
     state.mapsMatched = false
     log("session stopped")
     local n = notify_fn or state.notify
@@ -527,7 +569,7 @@ function M.tick()
         state.bridgeJoined=lobby~="0" and bridge:match("^join transport=steam ")~=nil
         if state.isHost ~= isHost or state.bridgeLobby~=lobby then
             state.bridgeLobby=lobby
-            state.ghosts:clear();state.peerMaps={};state.peerNames={}
+            state.ghosts:clear();state.peerMaps={};state.peerNames={};state.peerHealth={}
             state.isHost = isHost
             state.sessionMapId = isHost and state.localMapId or nil
             if state.travel then state.travel.phase="idle";state.travel.target=nil;state.travel.queued=nil end
@@ -549,6 +591,7 @@ function M.tick()
             log("handle err: " .. tostring(err))
         end
     end
+    report_visibility()
 
     -- Outbound only when map gate open (still send hello/map via other paths).
     if require_same_map() and not state.mapsMatched then

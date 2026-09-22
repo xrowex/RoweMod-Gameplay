@@ -156,6 +156,7 @@ class SteamPolicyTests(unittest.TestCase):
 
     def test_movement_uses_unreliable_control_uses_reliable(self):
         self.bridge.send(peer_id(11), 'F|1|test', [22])
+        self.bridge.flush_movement()
         self.bridge.send(peer_id(11), 'MREQ|1|Park', [22])
         self.assertFalse(self.api.sent[0][2])
         self.assertTrue(self.api.sent[1][2])
@@ -178,12 +179,127 @@ class SteamPolicyTests(unittest.TestCase):
         self.api.sent.clear()
         self.send(22, line='F|2|independent-pose-A', sequence=2)
         self.send(33, line='F|2|independent-pose-B', sequence=2)
+        self.bridge.flush_movement()
         for target, parsed, reliable in self.api.sent:
             sequence, peer, line = parsed
             receiver = clients[0] if target == 22 else clients[1]
             receiver.receive(11, encode_packet(100, sequence, peer, line))
         self.assertIn((peer_id(33), 'F|2|independent-pose-B'), clients[0].box.drain_in())
         self.assertIn((peer_id(22), 'F|2|independent-pose-A'), clients[1].box.drain_in())
+
+    def test_four_players_share_congested_downlink_without_starvation(self):
+        # Model Steam NoDelay accepting only one pose per flush on a slow link.
+        # The old relay always attempted client 22 first and the host last.
+        self.bridge.members = self.api.roster = {11, 22, 33, 44}
+        accepted, budget = [], [1]
+        original_send = self.api.send
+        def constrained(target, payload, channel, reliable):
+            if target == 44 and not reliable:
+                if not budget[0]:
+                    return 41  # k_EResultIgnored
+                budget[0] -= 1
+                accepted.append(decode_packet(payload, 100)[1])
+            return original_send(target, payload, channel, reliable)
+        self.api.send = constrained
+        for sender in (22, 33, 44):
+            self.send(sender)
+        for tick in range(12):
+            budget[0] = 1
+            self.send(22, line=f'F|{tick+2}|A', sequence=tick+2)
+            self.send(33, line=f'F|{tick+2}|B', sequence=tick+2)
+            self.bridge.send(peer_id(11), f'F|{tick+2}|Host', self.bridge.targets())
+            self.bridge.flush_movement()
+        self.assertEqual(set(accepted), {peer_id(11), peer_id(22), peer_id(33)})
+        for peer in set(accepted):
+            self.assertEqual(accepted.count(peer), 4)
+
+    def test_relay_rate_budget_counts_all_origins(self):
+        self.bridge.mode, self.bridge.host = 'join', 22
+        self.bridge.members = {11, 22, 33, 44}
+        for origin in (22, 33, 44):
+            self.send(22, peer=origin)
+        self.bridge.box.drain_in()
+        # Each origin is below its own budget, while aggregate exceeds one user.
+        from unittest.mock import patch
+        with patch('steam_mp.time.monotonic', return_value=100):
+            self.bridge.rate.entries.clear()
+            for seq in range(2, 72):
+                for origin in (22, 33, 44):
+                    self.send(22, peer=origin, line=f'F|{seq}|pose', sequence=seq)
+        lines = self.bridge.box.drain_in()
+        self.assertEqual(len(lines), 210)
+
+    def test_replayed_hello_uses_latest_announced_map(self):
+        self.send(22, line='H|0|Remote|3|StartMenu')
+        self.send(22, line='M|2|OutdoorSkatepark', sequence=2)
+        self.assertEqual(self.bridge.hellos[peer_id(22)], 'H|0|Remote|3|OutdoorSkatepark')
+
+    def test_four_player_sustained_mailboxes_and_late_join(self):
+        from unittest.mock import patch
+        users = {11, 22, 33, 44}
+        bridges = {11: self.bridge}
+        for user in sorted(users - {11}):
+            api = FakeSteam(); api.user = user
+            bridge = SteamBridge(api, Path(self.temp.name) / str(user))
+            bridge.lobby, bridge.host, bridge.mode = 100, 11, 'join'
+            bridges[user] = bridge
+        for bridge in bridges.values():
+            bridge.members = bridge.steam.roster = users
+        def route():
+            for sender, bridge in bridges.items():
+                packets, bridge.steam.sent = bridge.steam.sent, []
+                for target, (seq, peer, line), _ in packets:
+                    bridges[target].steam.incoming.append((sender, encode_packet(100, seq, peer, line)))
+        seen = {user: {} for user in users}
+        for tick in range(120):
+            with patch('steam_mp.time.monotonic', return_value=100 + tick * .05):
+                for user, bridge in bridges.items():
+                    # Last skater starts a second later than the rest.
+                    if user == 44 and tick < 20:
+                        continue
+                    if tick in (0, 20):
+                        bridge.box.write_out(f'H|1|Skater{user}|3|OutdoorSkatepark')
+                    bridge.box.write_out(f'F|{tick+2}|pose-{user}-{tick}')
+                    bridge.tick()
+                route()
+                for user, bridge in bridges.items():
+                    for peer, line in bridge.box.drain_in():
+                        if line.startswith('F|'):
+                            seen[user][peer] = line
+        for user in users:
+            self.assertEqual(set(seen[user]), {peer_id(p) for p in users - {user}})
+            for peer, line in seen[user].items():
+                self.assertIn(f'pose-{int(peer,16)}-', line)
+                self.assertGreater(int(line.rsplit('-', 1)[1]), 110)
+
+    def test_pending_poses_replace_expire_and_clear_on_leave(self):
+        from unittest.mock import patch
+        with patch('steam_mp.time.monotonic', return_value=100):
+            for seq in range(20):
+                self.bridge.send(peer_id(11), f'F|{seq}|pose', [22])
+            self.assertEqual(len(self.bridge.movement), 1)
+            self.bridge.flush_movement()
+            self.assertEqual(self.api.sent[-1][1][2], 'F|19|pose')
+            self.bridge.send(peer_id(11), 'F|20|old', [22])
+        count = len(self.api.sent)
+        with patch('steam_mp.time.monotonic', return_value=101):
+            self.bridge.flush_movement()
+        self.assertEqual(len(self.api.sent), count)
+        self.bridge.send(peer_id(11), 'F|21|pending', [22])
+        self.bridge.leave()
+        self.assertFalse(self.bridge.movement)
+
+    def test_single_origin_cannot_use_entire_relay_budget(self):
+        from unittest.mock import patch
+        self.bridge.mode, self.bridge.host = 'join', 22
+        self.bridge.members = {11, 22, 33, 44}
+        with patch('steam_mp.time.monotonic', return_value=100):
+            self.send(22)
+            self.bridge.box.drain_in()
+            for seq in range(2, 180):
+                self.send(22, line=f'F|{seq}|pose', sequence=seq)
+        self.assertLessEqual(len(self.bridge.box.drain_in()), 160)
+        self.assertGreater(self.bridge.rate_drops, 0)
 
     def test_full_mailbox_path_flows_both_directions(self):
         """Exercise the same mailbox->bridge->mailbox route each game uses."""

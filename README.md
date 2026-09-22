@@ -4,7 +4,7 @@ In-game gameplay settings and Steam multiplayer. Unofficial fan mod.
 
 ## Install
 
-1. [Download **RoweMod-0.5.3.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
+1. [Download **RoweMod-0.5.4.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
 2. Extract the whole ZIP. Close Rollout and RoweMod Online.
 3. Double-click **install.cmd**. UE4SS is included; no Python installation needed.
 4. Launch Rollout from Steam, load a park, and press **F5**.
@@ -19,7 +19,7 @@ Use Movement, Tricks, or Balance to adjust gameplay live. Click **Save Settings*
 
 Public sessions and joining with a code are available inside the Join/Host views. Automatic map loading supports the three stock parks: Outdoor Skatepark, The Big Hall and Observatory. Each player needs their own Steam account and copy of Rollout. Both players need the same custom clothing assets to see custom outfits.
 
-Multiplayer is experimental. Independent LAN movement and local Steam lobby checks pass; full two-account internet validation is still pending.
+Multiplayer is experimental. Players have reported successful internet sessions, but also missing skaters in larger lobbies. This update fixes reproduced relay starvation and map-introduction bugs; a live four-player retest is still needed.
 
 ## Updates
 
