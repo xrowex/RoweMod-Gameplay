@@ -2,3 +2,11 @@
 .idea/
 *.user
 Thumbs.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tools/deps/*.dll
+tools/deps/*.exe
+dist/
+build/
+tools/deps/ue4ss-runtime/

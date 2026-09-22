@@ -1,47 +1,32 @@
-# RoweMod Gameplay
+# RoweMod for Rollout Inline
 
-Live **speed and feel** options for [Rollout Inline](https://store.steampowered.com/app/4464990/). Unofficial. This is **not** the clothing kit.
-
-Clothes: [xrowex/RoweMod-Rollout](https://github.com/xrowex/RoweMod-Rollout)  
-Shared outfits: [xrowex/RoweMod-Gallery](https://github.com/xrowex/RoweMod-Gallery)
-
-This repo needs **UE4SS** in the game. Clothing overlays do not. Players who only want shirts can ignore this.
+In-game gameplay settings and Steam multiplayer. Unofficial fan mod.
 
 ## Install
 
-1. Install UE4SS into `RollerSkate\Binaries\Win64` (the clothing kit’s `tools\install_ue4ss.ps1`, or [UE4SS experimental](https://github.com/UE4SS-RE/RE-UE4SS) for UE 5.4).
-2. Double-click **`install.ps1`** in this folder. It copies the Lua mod next to UE4SS.
-3. Launch the game from Steam.
+1. [Download **RoweMod-0.5.1.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
+2. Extract the whole ZIP. Close Rollout and RoweMod Online.
+3. Double-click **install.cmd**. UE4SS is included; no Python installation needed.
+4. Launch Rollout from Steam, load a park, and press **F5**.
 
-Default is **1.25×** casual + sprint speed increase. Edit `ue4ss\Mods\RoweModGameplay\Scripts\config.lua` and press **F8** in-game.
+Use Movement, Tricks, or Balance to adjust gameplay live. Click **Save Settings** to keep your changes. The Camera tab has been removed.
 
-## In the game
+## Play with a friend
 
-| Input | What it does |
-|---|---|
-| Numpad **+** / **-** | Speed up / slow down (0.1 steps) |
-| **F8** | Reload `config.lua` |
-| **~** or **F10** | Console (UE4SS ConsoleEnabler) |
+1. Both players install this version and load the same map.
+2. Open **F5 > Multiplayer > Start Steam Connection**.
+3. Host selects **Host Friends**. The other player selects **Find Friends**, then **Join**.
 
-Console:
+You can also host public sessions or join by lobby ID. Each player needs their own Steam account and copy of Rollout. Both players need the same custom clothing assets to see custom outfits.
 
-```
-rowemod speed 1.5
-rowemod dump
-rowemod reload
-```
+Multiplayer is experimental. Independent LAN movement and local Steam lobby checks pass; full two-account internet validation is still pending.
 
-Green on-screen text confirms the current multiplier.
+## Updates
 
-## What it changes
+Updates check automatically when the game starts. New versions install after you close Rollout and RoweMod Online. Your settings are preserved and replaced files are backed up.
 
-On `NewMainCharacter`:
+Download the **RoweMod ZIP** under release assets, not GitHub's automatically generated source archives.
 
-- `CasualSpeedIncrease` / `SprintSpeedIncrease` (the speed multiplier)
-- Optional overrides in `config.lua`: `maxLinearForce`, `maxAngularForce`, `gravity`, `slomoSpeed`
+[Menu guide](docs/in-game-menu.md) | [Update and recovery details](docs/auto-updates.md) | [Advanced settings](docs/gameplay-reference.md) | [Steam troubleshooting](docs/steam-online.md)
 
-Frames and wheels in the clothing catalog are meshes only. They do not store top speed.
-
-## Legal
-
-MIT for this Lua. Rollout Inline belongs to its owners. Fan project. Do not use this to bother other players if a multiplayer mode exists.
+MIT-licensed mod. Bundled tools retain their [own licenses](docs/third-party-online.md). No game assets are included.

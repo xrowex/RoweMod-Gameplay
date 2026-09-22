@@ -1,0 +1,19 @@
+{
+  "initialized": true,
+  "private_lobby": true,
+  "metadata": true,
+  "self_message": true,
+  "cross_account_tested": false,
+  "owner_matches": true,
+  "member_count": 1,
+  "status": "Hosting private session. Launch the game and load a map.",
+  "self_send_result": 1,
+  "left_lobby": true,
+  "self_message_sdk_warning": "SDK emitted Unlinking connection in state 1 assertions for a same-account pipe; not a real peer test",
+  "public_search_completed": true,
+  "standalone_browser_verified": true,
+  "game_bootstrap_verified": true,
+  "cross_account_connection_tested": false,
+  "overlay_join_tested": false,
+  "cold_launch_friend_join_tested": false
+}

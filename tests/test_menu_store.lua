@@ -1,0 +1,15 @@
+package.path="ue4ss/Mods/RoweModGameplay/Scripts/?.lua;"..package.path
+local store=require("menu_store")
+local values=store.decode("speedMultiplier=1.25\ntriggerSteering=false\nstreamlinedControls=true\nunknown=12\nmaxSpinSpeed=math.huge\njumpVelocity=1e999\nslomoSpeed=-1\n")
+assert(values.speedMultiplier==1.25)
+assert(values.triggerSteering==false and values.streamlinedControls==true)
+assert(values.unknown==nil and values.maxSpinSpeed==nil and values.jumpVelocity==nil and values.slomoSpeed==nil)
+assert(next(store.decode(string.rep("x",16385)))==nil)
+store.path=function() return arg[1].."/settings.txt" end
+assert(store.save(values))
+local loaded=store.load()
+assert(loaded.triggerSteering==false and loaded.speedMultiplier==1.25)
+assert(store.save({speedMultiplier=1.5}))
+assert(store.load().speedMultiplier==1.5 and store.load().triggerSteering==nil)
+local f=assert(io.open(store.path()..".bak","rb"));assert(f:read("*a"):match("speedMultiplier=1.25"));f:close()
+print("settings validation, false toggles, roundtrip and last-save backup passed")

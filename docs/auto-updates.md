@@ -1,0 +1,27 @@
+# Automatic updates
+
+The complete release ZIP bundles the UE4SS runtime from commit `f6d5f942`, its MIT license, the RoweMod scripts and the standalone Online executable. Extract it and run `install.cmd`; no Python or separate UE4SS setup is required. The installer can request administrator access if the Steam library requires it.
+
+On game launch, a windowless updater checks the latest stable release from `xrowex/RoweMod-Gameplay`. It does not load Steam or open the companion UI. Only newer three-part versions are accepted; drafts, prereleases and downgrades are ignored. The first public installer release is 0.5.1.
+
+The checker downloads `update.json` and its named ZIP from that same repository's release. It validates the ZIP's SHA-256, size, every packaged file hash, archive paths and packaged version. This trusts the repository's published release over HTTPS; these checks detect damage and mismatched packages, but are not a separate publisher signature.
+
+A separate worker waits until Rollout and RoweMod Online exit. It then runs the staged installer. It never terminates the game. The background companion launched from the in-game menu exits when Rollout closes; if you opened the desktop companion, close it too. An offline or failed update check does not block gameplay.
+
+The installer snapshots every destination file before replacement, preserves existing `config.lua`, saved menu settings and unrelated mods, and attempts rollback on a copy failure. An installation needing elevation is not silently elevated by the updater: run the staged `install.cmd` once if its status says administrator access is needed. The game directory must remain closed during installation.
+
+Status and recovery:
+
+- `%LOCALAPPDATA%\RoweMod\Updates\status.json`: checked/current/available version, pending package or failure details.
+- `%LOCALAPPDATA%\RoweMod\Updates\install.log`: installer output.
+- `%LOCALAPPDATA%\RoweMod\Backups\Install-*`: previous files and receipt. Restore these with the game closed if needed.
+
+## Publishing an update
+
+1. Update `version.json` to a higher `major.minor.patch` version; commit and push the release source.
+2. Run `tools/build_online.ps1`, the test suites, and `tools/package_online.py --out dist/<version>/RoweMod-<version>.zip`.
+3. Publish a stable GitHub Release tagged `v<version>` against that source commit. Attach both the generated ZIP and the adjacent `update.json`. These two files must stay together and must not be modified after publishing. Mark it as the latest release.
+
+The updater reads GitHub Releases, not arbitrary changes pushed to a branch. UE4SS changes only when a RoweMod release intentionally bundles a newly tested runtime; it does not follow UE4SS's moving experimental-latest download. The runtime file hashes and source commit are recorded in `tools/ue4ss-runtime.json`.
+
+Release packaging intentionally excludes game assets, private saved settings, logs, crash dumps, and personal clothing mods. Runtime binaries are ignored by Git and distributed as release assets.

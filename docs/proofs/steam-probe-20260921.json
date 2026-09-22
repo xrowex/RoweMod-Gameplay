@@ -1,0 +1,35 @@
+{
+  "requested_app_id": 4464990,
+  "initialized": true,
+  "creates_lobbies": false,
+  "sends_invites": false,
+  "cross_account_connection_tested": false,
+  "interface_exports": {
+    "user": "SteamAPI_SteamUser_v021",
+    "utils": "SteamAPI_SteamUtils_v010",
+    "lobbies": "SteamAPI_SteamMatchmaking_v009",
+    "messages": "SteamAPI_SteamNetworkingMessages_SteamAPI_v002",
+    "sockets": "SteamAPI_SteamNetworkingSockets_SteamAPI_v012",
+    "network_utils": "SteamAPI_SteamNetworkingUtils_SteamAPI_v004"
+  },
+  "interfaces": {
+    "user": true,
+    "utils": true,
+    "lobbies": true,
+    "messages": true,
+    "sockets": true,
+    "network_utils": true
+  },
+  "actual_app_id": 4464990,
+  "logged_on": true,
+  "authentication": {
+    "availability": 100,
+    "detail": "OK"
+  },
+  "relay": {
+    "availability": 100,
+    "network_config": 100,
+    "any_relay": 100,
+    "detail": "OK.  Relays: 25 valid, 2 great, 4 good+, 17 ok+, 3 ignored"
+  }
+}

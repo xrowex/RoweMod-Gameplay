@@ -1,0 +1,18 @@
+{
+  "build": "3.0.1 Beta #0 f6d5f942",
+  "source": "https://github.com/UE4SS-RE/RE-UE4SS/tree/f6d5f942",
+  "sha256": {
+    "dwmapi.dll": "2bd8edd80335c4cc1a64186b8ac9fb5764e0ff58669584b6c04131fc9f5e3842",
+    "ue4ss/LICENSE": "99e1d8f8b7cb68e8b2313380ae3b0c8115e39dfbc443fcf21fd67ab74ce1d57e",
+    "ue4ss/Mods/CheatManagerEnablerMod/Scripts/main.lua": "15c7722168eb8966ed454e900e04de4b0ade42657905d8016c0e0660c119cd9e",
+    "ue4ss/Mods/ConsoleCommandsMod/Scripts/dump_object.lua": "365b7e8a803f8ae917f54f6c852854c681e388227dd1f94b0ea3f6fb938b5086",
+    "ue4ss/Mods/ConsoleCommandsMod/Scripts/main.lua": "5bf33cd4ef9f6a155fe5f7842218a6486c2c227858ffd99806e75d81d0da9f27",
+    "ue4ss/Mods/ConsoleCommandsMod/Scripts/set.lua": "876e7de49f0e30a4329c081472bc7d5e1948459c774b7abbb8be4b6323f16ec8",
+    "ue4ss/Mods/ConsoleCommandsMod/Scripts/summon_unloaded_assets.lua": "194b557404b6078767f8b57b836aa44d084cf6f3f2cbde71a6831857567f8103",
+    "ue4ss/Mods/ConsoleEnablerMod/Scripts/main.lua": "2517ea80a074bc5e6f00c55263c1867bf8e74c6b8665a79217adb53fdbe04343",
+    "ue4ss/Mods/Keybinds/Scripts/main.lua": "297dd6f7f560e1cebc15cd4509ad481495d9179f5758a8034be4c417a369803a",
+    "ue4ss/Mods/shared/UEHelpers/UEHelpers.lua": "7476f02eef0c87bfeab169f2ffe2e704363faeaae4bf9f1bda574b1e34f4a0e9",
+    "ue4ss/UE4SS-settings.ini": "f1546803fd1188f53cc0a475ba2ef62737cf0c44383878e2b31db8c1a9e62cde",
+    "ue4ss/UE4SS.dll": "d936fd2d66ae9287f0b32aec5f698aa81ff20ef744eac43bf62d8475469393df"
+  }
+}
