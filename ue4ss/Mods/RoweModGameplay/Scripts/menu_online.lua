@@ -10,6 +10,7 @@ local initialized,starting,pending,failure,last_update,last_notice,signature
 local snapshot={rows={},stale=true,message="Connecting to Steam..."}
 local request_seq=0
 local last_search=0
+local copy_waiting
 local function encode(value)
     return tostring(value or ""):gsub("[%%\t\r\n]",function(c) return string.format("%%%02X",c:byte()) end)
 end
@@ -18,12 +19,13 @@ local function read_state()
     local f=io.open(root.."/menu_state.txt","rb")
     if not f then return {rows={},stale=true,message="Connecting to Steam..."} end
     local raw=f:read(65537);f:close()
-    local state={rows={}}
+    local state={rows={},roster={}}
     if not raw or #raw>65536 then state.stale=true;state.message="Steam status unavailable";return state end
     for line in raw:gmatch("[^\r\n]+") do
         local cells={}
         for cell in (line.."\t"):gmatch("(.-)\t") do cells[#cells+1]=decode(cell) end
         if cells[1]=="room" and #cells==6 then state.rows[#state.rows+1]=cells
+        elseif cells[1]=="player" and #cells==7 and #state.roster<8 then state.roster[#state.roster+1]=cells
         elseif #cells==2 then state[cells[1]]=cells[2] end
     end
     if state.phase=="error" then state.stale=true;state.rows={}
@@ -46,6 +48,7 @@ local function send(action,fields)
     f:close()
     if not os.rename(path..".tmp",path) then return false,"Unable to send the session request" end
     if action=="host" or action=="join" then api.connect() end
+    if action=="diagnostics" then copy_waiting=os.time() end
     return true
 end
 local function launch()
@@ -54,7 +57,7 @@ local function launch()
     if ok then starting=os.time();failure=nil else failure=err;pending=nil end
 end
 local function request(action,fields)
-    if snapshot.busy=="1" then say("Finishing the current session request...");return end
+    if snapshot.busy=="1" and action~="diagnostics" then say("Finishing the current session request...");return end
     pending={action=action,fields=fields};failure=nil;last_update=nil
     if not ready(read_state()) then launch() end
 end
@@ -69,6 +72,10 @@ end
 function M.update()
     if not initialized or last_update==os.time() then return end
     last_update=os.time();snapshot=read_state()
+    if copy_waiting and (tonumber(snapshot.updated) or 0)>copy_waiting and
+        (tostring(snapshot.message):match("^Diagnostics") or tostring(snapshot.message):match("^Clipboard")) then
+        say(snapshot.message);copy_waiting=nil
+    end
     if starting then
         if ready(snapshot) then starting=nil;api.connect()
         elseif snapshot.phase=="error" and (tonumber(snapshot.updated) or 0)>=starting then
@@ -85,9 +92,31 @@ function M.update()
     end
 end
 local function map_status() return api.map_status and api.map_status() or {phase="idle"} end
+local function player_rows()
+    local health=api.players and api.players() or {players={}}
+    local byId={}
+    if tostring(health.lobby)==tostring(snapshot.lobby) then
+        for _,p in ipairs(health.players or {}) do byId[p.id]=p end
+    end
+    local rows={}
+    for _,p in ipairs(snapshot.roster or {}) do
+        local status=p[7]=="1" and "Waiting for game" or "Connecting"
+        local badge=p[4]=="1" and "HOST" or "PLAYER"
+        local map=p[6]
+        if p[5]=="1" then
+            badge=badge.." / YOU";status="Ready"
+            local travel=map_status()
+            if travel.phase=="loading" or travel.phase=="waiting" then status="Loading map"
+            elseif travel.phase=="failed" then status="Map load failed" end
+        elseif byId[p[2]] and p[7]=="1" then status=byId[p[2]].status;map=byId[p[2]].map end
+        rows[#rows+1]={name=p[3]:gsub("[%c]"," "),badge=badge,status=status,map=map}
+    end
+    return rows
+end
 local function layout_signature()
     local parts={active(snapshot) and (snapshot.role..snapshot.lobby..tostring(snapshot.map)..tostring(snapshot.players)) or "browse",failure or "",map_status().phase or "idle"}
     for _,r in ipairs(snapshot.rows) do parts[#parts+1]=table.concat(r,"|") end
+    for _,r in ipairs(player_rows()) do parts[#parts+1]=table.concat({r.name,r.badge,r.status,r.map},"|") end
     return table.concat(parts,"\n")
 end
 local function switch(nextView) view=nextView;show_code=false;rebuild() end
@@ -99,7 +128,7 @@ function M.build(renderer,parent)
         if not active(snapshot) then request("friends") end
     end
     local state=snapshot
-    local status=ui.card(parent,"ONLINE",nil)
+    local status=ui.card(parent,"ONLINE",snapshot.version and ("RoweMod "..snapshot.version) or nil)
     status_label=ui.label(status,"Connecting...",17);ui.vadd(status,status_label,4)
     pcall(function() status_label:SetAutoWrapText(true) end)
     if failure or state.stale and not starting then
@@ -111,6 +140,14 @@ function M.build(renderer,parent)
         ui.vadd(card,ui.label(card,"Players: "..tostring(state.players or "1").."   |   Park: "..tostring(state.map or "Loading"),18),6)
         local travel=map_status()
         if travel.phase=="failed" then ui.action(card,"RETRY MAP LOAD",function() api.retry_map() end,true) end
+        local players=ui.card(parent,"PLAYERS","Avatar status is shown from your game's point of view.")
+        for _,p in ipairs(player_rows()) do
+            local name=ui.label(players,p.name.."   /   "..p.badge,17)
+            pcall(function() name:SetAutoWrapText(true) end)
+            ui.vadd(players,name,6)
+            local park=p.map=="unknown" and "Waiting for park" or p.map
+            ui.vadd(players,ui.label(players,p.status.."   |   "..park,15),4)
+        end
         ui.action(card,show_details and "HIDE SESSION CODE" or "SHOW SESSION CODE",function() show_details=not show_details;rebuild() end)
         if show_details then ui.vadd(card,ui.label(card,tostring(state.lobby),18),6) end
         ui.action(card,"LEAVE SESSION",function() request("leave");api.disconnect() end)
@@ -155,6 +192,8 @@ function M.build(renderer,parent)
             end
         end
     end
+    local support=ui.card(parent,"HELP","Copies connection and avatar details without account IDs or the session code.")
+    ui.action(support,"COPY DIAGNOSTICS",function() request("diagnostics");say("Preparing diagnostics...") end)
     signature=layout_signature();last_notice=nil
 end
 function M.tick(page)
@@ -163,7 +202,8 @@ function M.tick(page)
     if ready(snapshot) and not active(snapshot) and view=="join" and not show_code and not pending and snapshot.busy~="1" and os.time()-last_search>=10 then request(source) end
     local text=failure or snapshot.message or "Ready"
     local travel=map_status()
-    if active(snapshot) and snapshot.role=="join" and travel.message then text=travel.message
+    if text:match("^Diagnostics") or text:match("^Clipboard") then -- Keep the copy result visible.
+    elseif active(snapshot) and snapshot.role=="join" and travel.message then text=travel.message
     elseif starting then text="Connecting to Steam... ("..tostring(os.time()-starting).."s)"
     elseif ready(snapshot) and not active(snapshot) then text="Steam ready. "..tostring(snapshot.message or "Choose a session or host your own.") end
     if pending and not starting then text="Connecting to your session..." end

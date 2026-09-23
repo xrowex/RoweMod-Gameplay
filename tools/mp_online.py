@@ -209,7 +209,10 @@ class OnlineWindow:
             self.background = False
             self.window.deiconify()
             self.window.lift()
-        menu_control.consume(self.bridge, show)
+        def copy(text):
+            self.window.clipboard_clear()
+            self.window.clipboard_append(text)
+        menu_control.consume(self.bridge, show, copy)
         menu_control.publish(self.bridge)
 
     def tick(self):

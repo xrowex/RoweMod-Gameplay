@@ -21,7 +21,7 @@ package.loaded["mp.avatar"] = {
         function actor:K2_DestroyActor() self.alive=false end
         return {actor=actor,parts={true},x=f[3][1][1][1]}
     end,
-    apply=function(s,f) s.x=f[3][1][1][1] end,
+    apply=function(s,f) if s.fail then error("broken remote component") end;s.x=f[3][1][1][1] end,
 }
 local m=require("mp.ghost").create_manager()
 m:ensure("A","same name"); assert(spawned==0)
@@ -47,6 +47,14 @@ clock=104
 assert(m:apply_frame("C",{seq=3,frame=frame(40)}))
 m:remove("B")
 assert(not b.actor.alive and m:apply_frame("B",{seq=1,frame=frame(50)}),"reconnect resets sequence")
+m.ghosts.A.fail=true
+clock=105
+m:apply_frame('A',{seq=5,frame=frame(60,'/Game/Shirt.Shirt')})
+m:apply_frame('B',{seq=2,frame=frame(70)})
+m:render(105.2)
+assert(m.ghosts.A.renderError and m.ghosts.B.x==70,'One broken avatar must not stop other avatars rendering')
+m.ghosts.A.fail=false;m:render(105.3)
+assert(not m.ghosts.A.renderError and m.ghosts.A.lastRendered==105,'Render failure can recover')
 m:clear()
 assert(next(m.ghosts)==nil and next(m.lastSeq)==nil and next(m.retryAfter)==nil)
 os.time,os.clock=originalTime,originalClock

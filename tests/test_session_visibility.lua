@@ -8,8 +8,9 @@ maps.current=function() return {id='OutdoorSkatepark'} end
 package.loaded['mp.capture']={local_pawn=function() end,merge_prop_map=function() return {} end}
 package.loaded.game_thread={loop=function() return 1 end}
 local inbox={}
+local bridgeStatus='host transport=steam lobby=100 peers=3'
 local box={dir=arg[1],write_line=function() end,write_status=function() end,
- read_bridge_status=function() return 'host transport=steam lobby=100 peers=3' end,
+ read_bridge_status=function() return bridgeStatus end,
  poll_inbox=function() local r=inbox;inbox={};return r end}
 package.loaded['mp.mailbox']={open=function() return box end}
 local seen={}
@@ -47,5 +48,15 @@ now=102;session.tick();assert(seen.peer3==365)
 local f=assert(io.open(arg[1]..'/visibility.txt','rb'));local report=f:read('*a');f:close()
 assert(report:find('missing shared asset',1,true))
 assert(report:find('peer=peer2',1,true) and report:find('peer=peer3',1,true))
+local players=session.players();assert(players.lobby=='100' and #players.players==3)
+assert(players.players[1].status=='Avatar failed')
+-- A partial status read must not turn a host into a joiner or clear the roster.
+now=104;bridgeStatus='';session.tick()
+assert(session.players().lobby=='100' and #session.players().players==3)
+assert(session.request_map('OutdoorSkatepark'),'Host authority survives an empty status read')
+now=105;bridgeStatus='host transport=steam lobby=';session.tick()
+assert(session.players().lobby=='100' and #session.players().players==3)
+now=106;bridgeStatus='idle transport=steam lobby=0 peers=0';session.tick()
+assert(session.players().lobby=='0' and #session.players().players==0,'An explicit leave still clears the roster')
 session.stop()
 print('Three remote players: sustained independent poses, isolated map gates and asset-error diagnostics passed')

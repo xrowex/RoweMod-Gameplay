@@ -57,10 +57,37 @@ class MenuControlTests(unittest.TestCase):
             getattr(self.bridge, action).assert_called_once_with()
         show.assert_called_once_with()
 
+    def test_diagnostics_aliases_identifiers_and_saves_clipboard_fallback(self):
+        from steam_mp import SteamBridge, peer_id
+        from test_steam_mp import FakeSteam
+        api = FakeSteam(); api.user = 76561198000000001
+        bridge = SteamBridge(api, self.root)
+        bridge.host=api.user; bridge.mode='host'; bridge.lobby=109775244182498723
+        bridge.members={api.user,76561198000000002}
+        peer=peer_id(76561198000000002)
+        bridge.hellos[peer]='H|0|Private Name|3|OutdoorSkatepark'
+        (self.root/'player_health.txt').write_text('updated\t'+str(int(time.time()))+'\nlobby\t'+str(bridge.lobby)+
+            '\nplayer\t'+peer+'\tAvatar failed\tOutdoorSkatepark\t5\t0\tmissing shared asset')
+        report=menu.diagnostics(bridge)
+        self.assertIn('Avatar failed',report)
+        for private in (peer,str(bridge.lobby),str(api.user),'Private Name'):
+            self.assertNotIn(private,report)
+        copy=Mock()
+        menu.apply_command(bridge,{'action':'diagnostics'},Mock(),copy)
+        copy.assert_called_once()
+        self.assertTrue((self.root/'diagnostics-copy.txt').is_file())
+        self.assertIn('copied',bridge.message)
+        menu.apply_command(bridge,{'action':'diagnostics'},Mock(),Mock(side_effect=RuntimeError('busy')))
+        self.assertIn('saved',bridge.message)
+        (self.root/'player_health.txt').write_text('updated\t0\nlobby\t0')
+        self.assertIn('stale',menu.diagnostics(bridge))
+        menu.publish(bridge)
+        self.assertIn('player\t'+peer,(self.root/'menu_state.txt').read_text())
+
     def test_snapshot_preserves_ids_and_escapes_untrusted_names(self):
         b = SimpleNamespace(box=SimpleNamespace(root=self.root), message='ready', mode='host',
                             map='park', lobby=109775244182498723, peers={}, members=[1], busy=False,
-                            rows=[dict(id=109775244182498723, name='hello\nroom\t%20', map='park', players=1, source='friends')])
+                            roster=lambda: [], rows=[dict(id=109775244182498723, name='hello\nroom\t%20', map='park', players=1, source='friends')])
         menu.publish(b)
         data = (self.root/'menu_state.txt').read_text()
         self.assertIn('lobby\t109775244182498723\n', data)

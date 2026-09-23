@@ -319,6 +319,17 @@ local function report_visibility()
     end
     local f=io.open(state.box.dir.."/visibility.txt","wb")
     if f then f:write(table.concat(rows,"\n"));f:close() end
+    local function enc(value)
+        return tostring(value or ""):gsub("[%%\t\r\n]",function(c) return string.format("%%%02X",c:byte()) end)
+    end
+    local health={"updated\t"..os.time(),"lobby\t"..tostring(state.bridgeLobby or "0")}
+    for _,player in ipairs(M.players().players) do
+        health[#health+1]=table.concat({"player",enc(player.id),enc(player.status),enc(player.map),
+            enc(player.received),enc(player.applied),enc(player.detail)},"\t")
+    end
+    local path=state.box.dir.."/player_health.txt"
+    f=io.open(path..".tmp","wb")
+    if f then f:write(table.concat(health,"\n"));f:close();os.remove(path);os.rename(path..".tmp",path) end
 end
 
 function M.is_active()
@@ -334,6 +345,28 @@ function M.maps_ok()
 end
 function M.map_status()
     return state.travel and {phase=state.travel.phase,message=state.travel.message,target=state.travel.target} or {phase="idle"}
+end
+function M.players()
+    local result={lobby=state.bridgeLobby or "0",players={}}
+    if not state.active then return result end
+    local ids={};for id in pairs(state.peerNames) do ids[id]=true end
+    for id in pairs(state.peerHealth) do ids[id]=true end
+    for id in pairs(ids) do
+        local h=state.peerHealth[id] or {}
+        local status="Waiting for poses"
+        local slot=state.ghosts and state.ghosts.ghosts[id]
+        if not state.mapsMatched then status="Loading map"
+        elseif state.peerMaps[id] and not mapinfo.same(state.peerMaps[id],state.localMapId) then status="On another map"
+        elseif h.lastFrame and os.time()-h.lastFrame>5 then status="Poses interrupted"
+        elseif h.lastError or slot and slot.renderError then status="Avatar failed"
+        elseif slot and slot.lastRendered and os.time()-slot.lastRendered>5 then status="Avatar not updating"
+        elseif slot and (slot.renders or 0)>0 then status="Avatar active"
+        elseif (h.applied or 0)>0 then status="Preparing avatar" end
+        result.players[#result.players+1]={id=id,name=state.peerNames[id] or "Skater",map=state.peerMaps[id] or "unknown",
+            status=status,received=h.received or 0,applied=h.applied or 0,detail=h.lastError or slot and slot.renderError or h.reason or "Waiting for first pose"}
+    end
+    table.sort(result.players,function(a,b) return a.id<b.id end)
+    return result
 end
 function M.retry_map()
     if state.active and not state.isHost and state.travel and state.travel.target then
@@ -564,16 +597,20 @@ function M.tick()
     if state.cfg.online and os.time() ~= state.lastRoleCheck then
         state.lastRoleCheck = os.time()
         local bridge = state.box:read_bridge_status() or ""
-        local isHost = bridge:match("^host transport=steam ") ~= nil
-        local lobby=bridge:match("lobby=(%d+)") or "0"
-        state.bridgeJoined=lobby~="0" and bridge:match("^join transport=steam ")~=nil
-        if state.isHost ~= isHost or state.bridgeLobby~=lobby then
-            state.bridgeLobby=lobby
-            state.ghosts:clear();state.peerMaps={};state.peerNames={};state.peerHealth={}
-            state.isHost = isHost
-            state.sessionMapId = isHost and state.localMapId or nil
-            if state.travel then state.travel.phase="idle";state.travel.target=nil;state.travel.queued=nil end
-            if isHost then send_line(protocol.encode_map_req(next_seq(), state.localMapId)) end
+        local role,lobby=bridge:match("^(%a+) transport=steam lobby=(%d+) peers=%d+")
+        -- An empty/partial read is not a leave event. Preserve the last known
+        -- host role and avatars until a complete companion status arrives.
+        if role=="host" or role=="join" or role=="idle" then
+            local isHost=role=="host"
+            state.bridgeJoined=lobby~="0" and role=="join"
+            if state.isHost ~= isHost or state.bridgeLobby~=lobby then
+                state.bridgeLobby=lobby
+                state.ghosts:clear();state.peerMaps={};state.peerNames={};state.peerHealth={}
+                state.isHost = isHost
+                state.sessionMapId = isHost and state.localMapId or nil
+                if state.travel then state.travel.phase="idle";state.travel.target=nil;state.travel.queued=nil end
+                if isHost then send_line(protocol.encode_map_req(next_seq(), state.localMapId)) end
+            end
         end
     end
 

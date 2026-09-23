@@ -19,3 +19,9 @@ Host/join actions selected during Steam startup are completed automatically, inc
 The redesigned native layout and two-PC automatic map transitions still need in-game acceptance; automated tests cover the navigation, queued actions, widget lifetime and map-loading state machine.
 
 The UMG construction approach was informed by [ue4ss-ModMenu](https://github.com/mattdavida/ue4ss-ModMenu), MIT licensed. See [license](licenses/ModMenu.txt).
+
+## Player list and diagnostics
+
+F5 > Multiplayer shows the installed RoweMod version and a live player list during a session. The host and your own skater are marked. Remote status distinguishes connecting, waiting for poses, loading/another map, avatar failure, interrupted poses and an active avatar. These describe the local game's state; "Avatar active" is not a promise that the player is inside your camera view.
+
+Use **Copy Diagnostics** in the Help card to copy a bounded report from the running Steam companion. It includes local role/map, per-player traffic, pose application and avatar errors. Account IDs, display names and the session code are omitted or replaced with player aliases. Nothing is uploaded. If the clipboard is unavailable, the report is saved as `%TEMP%\RoweModMP\Steam\diagnostics-copy.txt`. A running Steam companion is required; a failed Steam startup still uses the startup error shown in the menu.

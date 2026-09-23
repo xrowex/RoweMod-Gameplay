@@ -16,8 +16,9 @@ local function state(role,lobby)
 end
 local page=require("menu_online")
 local travel={phase="idle"}
+local rosterHealth={lobby="123",players={{id="guest",status="Avatar failed",map="OutdoorSkatepark"}}}
 page.init({connect=function() connected=connected+1 end,disconnect=function() disconnected=disconnected+1 end,
-    map_status=function() return travel end,retry_map=function() retried=retried+1 end})
+    players=function() return rosterHealth end,map_status=function() return travel end,retry_map=function() retried=retried+1 end})
 local widgets,buttons,entries,messages={},{},{},{}
 local function widget(text)
     local w={text=text,alive=true}
@@ -49,6 +50,15 @@ for _,text in pairs(files) do if text:find('action\thost') and text:find('name\t
 assert(hosted,'Complete the requested action after Steam becomes ready without reopening the menu')
 now=1002;state('host','123');page.update();mount()
 assert(buttons['LEAVE SESSION'] and not buttons.HOST and #entries==0)
+stateText=stateText..'player\tself\tMe\t1\t1\tOutdoorSkatepark\t1\nplayer\tguest\tFriend\t0\t0\tOutdoorSkatepark\t1\n'
+now=now+1;page.update();mount()
+local listText={};for _,w in ipairs(widgets) do listText[#listText+1]=w.text or '' end
+local rosterText=table.concat(listText,'\n')
+assert(rosterText:find('HOST / YOU',1,true) and rosterText:find('Friend',1,true) and rosterText:find('Avatar failed',1,true))
+buttons['COPY DIAGNOSTICS']();now=now+1;state('host','123');page.update()
+local copied=false;for _,text in pairs(files) do if text:find('action	diagnostics',1,true) then copied=true end end
+assert(copied,'Copy diagnostics reaches the companion')
+
 buttons['LEAVE SESSION']();page.update();assert(disconnected==1)
 now=1003;state();page.update();mount();assert(entries[1].text=='My session')
 buttons.JOIN();mount();assert(#entries==0 and buttons['JOIN WITH A CODE'])

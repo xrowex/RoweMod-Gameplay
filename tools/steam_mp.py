@@ -225,6 +225,19 @@ class SteamBridge:
     def targets(self):
         return list(self.members - {self.steam.user}) if self.mode == 'host' else ([self.host] if self.host else [])
 
+    def roster(self):
+        rows = []
+        for member in sorted(self.members, key=lambda p: (p != self.host, p)):
+            peer = peer_id(member)
+            hello = self.hellos.get(peer, '').split('|')
+            local = member == self.steam.user
+            name = self.steam.name if local else (hello[2] if len(hello) == 5 else
+                getattr(self.steam, 'persona_name', lambda _: 'Connecting skater')(member))
+            rows.append(dict(id=peer, name=name[:100], host=member == self.host, local=local,
+                map=self.map if local else (hello[4] if len(hello) == 5 else 'unknown'),
+                connected=local or peer in self.peers))
+        return rows
+
     def send(self, peer, line, targets):
         if not self.lobby:
             return

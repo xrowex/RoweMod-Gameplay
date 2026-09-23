@@ -38,15 +38,23 @@ function M.create_manager()
     end
     function self:render(now)
         local started=os.clock()
-        for _,s in pairs(self.ghosts) do
-            if s.actor:IsValid() then
-                local frame,stamp=interpolate.sample(s,now)
-                if frame and stamp~=s.renderStamp then
-                    avatar.apply(s,frame)
-                    s.renderStamp=stamp
-                    s.renders=(s.renders or 0)+1
+        for peer,s in pairs(self.ghosts) do
+            local ok,err=pcall(function()
+                if s.actor:IsValid() then
+                    local frame,stamp=interpolate.sample(s,now)
+                    if frame and stamp~=s.renderStamp then
+                        avatar.apply(s,frame)
+                        s.renderStamp=stamp
+                        s.renders=(s.renders or 0)+1
+                        s.lastRendered=os.time()
+                    end
                 end
-            end
+            end)
+            if not ok then
+                local message=tostring(err)
+                if s.renderError~=message then print("[RoweModMP] render "..peer..": "..message) end
+                s.renderError=message
+            else s.renderError=nil end
         end
         local elapsed=(os.clock()-started)*1000
         self.renderMs=self.renderMs and self.renderMs*.9+elapsed*.1 or elapsed

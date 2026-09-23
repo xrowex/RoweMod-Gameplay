@@ -189,6 +189,10 @@ class Steam:
         self.fn('SteamAPI_SteamNetworkingIdentity_SetSteamID64', None, C.POINTER(Identity), Q)(C.byref(value), steam_id)
         return value
 
+    def persona_name(self, steam_id):
+        name = self.call('Friends', 'GetFriendPersonaName', S, (Q,), (steam_id,))
+        return (name or b'Skater').decode('utf-8', 'replace')[:100]
+
     def identity_id(self, value):
         return self.fn('SteamAPI_SteamNetworkingIdentity_GetSteamID64', Q, C.POINTER(Identity))(C.byref(value))
 
