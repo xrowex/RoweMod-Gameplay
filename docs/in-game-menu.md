@@ -12,6 +12,9 @@ Sliders use audited ranges and snap to their displayed increments. Hover for ran
 
 **Movement > Gravity** ranges from **0.25x to 2.00x** in 0.05 steps. 1.00x is the map's original gravity; lower values give longer airtime. It changes local world physics and keeps the character's jump predictions in sync. Friends retain their own settings. Use Reset to restore the map's original gravity, and Save Settings to retain your multiplier across launches.
 
+Version 0.5.8 fixes Gravity incorrectly showing “Load a park to edit” during play. Gravity uses the world override as well as its cache, so the engine keeps the chosen value. Reset restores the map's original override settings. If gravity is unavailable for another reason, the menu reports that reason.
+
+
 On **Multiplayer**, Steam starts automatically. The **Join** view finds friends and refreshes while visible. Switch to public sessions with Show Public; Join With a Code expands the optional code field. The **Host** view contains a session name, a friends/public visibility toggle and one Host Session action. Once in a session, only session information and Leave Session are shown, with the session code available on demand.
 
 Choose Join Session and the game loads the host's stock park automatically. Subsequent host park changes are followed too. Supported parks are Outdoor Skatepark, The Big Hall and Observatory. Loading progress and failures appear in the online status area; a failed or timed-out load offers Retry Map Load. The menu closes before travel to release input and widget references. Ghost sync resumes only after arrival and player spawn. Custom maps/assets are not downloaded.

@@ -925,7 +925,9 @@ local menu_ok, menu_error = pcall(function()
     local api = {}
     function api.get(key)
         if key=="gravityMultiplier" then
-            if not gravity_control.available() then return nil end
+            if not require("mp.capture").local_pawn() then return nil,"Load a park to edit" end
+            local available,reason=gravity_control.available()
+            if not available then return nil,reason end
             return config[key] or 1.0
         end
         if config[key] ~= nil then return config[key] end

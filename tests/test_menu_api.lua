@@ -7,7 +7,7 @@ local function actor(id)
         GetFullName=function() return "actor"..id end}
 end
 local pawn,save=actor(1),actor(2)
-local world={WorldGravityZ=-1355,bWorldGravitySet=true,IsValid=function() return true end,GetAddress=function() return 10 end}
+local world={WorldGravityZ=-1355,bWorldGravitySet=false,GlobalGravityZ=0,bGlobalGravitySet=false,IsValid=function() return true end,GetAddress=function() return 10 end}
 pawn.Gravity=1355
 local api,timers
 timers={}
@@ -48,4 +48,10 @@ assert(api.set("gravityMultiplier",0.531))
 assert(api.get("gravityMultiplier")==0.55 and world.WorldGravityZ==-1355*0.55 and pawn.Gravity==1355*0.55)
 api.reset("gravityMultiplier")
 assert(world.WorldGravityZ==-1355 and pawn.Gravity==1355 and api.get("gravityMultiplier")==1)
+world.WorldGravityZ=0
+local value,reason=api.get("gravityMultiplier")
+assert(value==nil and reason=="Gravity: waiting for world physics",'Loaded park must not show a missing-park message')
+pawn=nil
+value,reason=api.get("gravityMultiplier")
+assert(value==nil and reason=="Load a park to edit",'Missing local pawn still needs a park')
 print("Live API validation, actual acceleration scale, safe reset and user-value preservation passed")

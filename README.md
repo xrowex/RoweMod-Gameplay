@@ -4,7 +4,7 @@ In-game gameplay settings, Steam multiplayer, and a selectable skeleton body. Un
 
 ## Install
 
-1. [Download **RoweMod-0.5.7.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
+1. [Download **RoweMod-0.5.8.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
 2. Extract the whole ZIP. Close Rollout and RoweMod Online.
 3. Double-click **install.cmd**. UE4SS and the skeleton body are included; no separate downloads needed.
 4. Launch Rollout from Steam, load a park, and press **F5**.

@@ -85,11 +85,11 @@ local function invoke(control)
 end
 local function setting(parent,item)
     local key,title=item[1],item[2]
-    local value=S.api.get(key)
+    local value,unavailable=S.api.get(key)
     local row=construct("HorizontalBox",parent)
     local sized=box(parent,52); sized:SetContent(row); vadd(parent,sized,2)
     hadd(row,label(row,title,19),true)
-    if value==nil then hadd(row,label(row,"Load a park to edit",16,C.muted)); return end
+    if value==nil then hadd(row,label(row,unavailable or "Load a park to edit",16,C.muted)); return end
     if item[3]=="bool" then
         local b,ctrl
         b,ctrl=button(row,pretty(value),function()

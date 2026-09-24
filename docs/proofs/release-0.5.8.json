@@ -1,0 +1,21 @@
+{
+  "version": "0.5.8",
+  "lua_54_suites": 19,
+  "regressions": [
+    "false bWorldGravitySet with loaded world",
+    "engine recomputes cache without losing multiplier",
+    "reset restores original world override",
+    "respawn and map travel",
+    "distinct gravity unavailable and no-park messages"
+  ],
+  "release_payload_hashes_verified": 75,
+  "deferred_update": {
+    "held_parent_prevented_install": true,
+    "installed_target_version": "0.5.8",
+    "ue4ss_and_skeleton_hashes_passed": true,
+    "backup_receipt": true,
+    "pending_download_reused": true,
+    "completed_caches_removed": true
+  },
+  "in_game_gravity_retest": "pending"
+}
