@@ -20,9 +20,11 @@ local rosterHealth={lobby="123",players={{id="guest",status="Avatar failed",map=
 page.init({connect=function() connected=connected+1 end,disconnect=function() disconnected=disconnected+1 end,
     players=function() return rosterHealth end,map_status=function() return travel end,retry_map=function() retried=retried+1 end})
 local widgets,buttons,entries,messages={},{},{},{}
+local rebuilds=0
 local function widget(text)
     local w={text=text,alive=true}
     function w:GetText() assert(self.alive,'Detached field read');return {ToString=function() return self.text end} end
+    function w:SetVisibility(value) assert(self.alive);self.visibility=value end
     widgets[#widgets+1]=w;return w
 end
 local ui={construct=function() return widget() end,label=function(_,text) return widget(text) end,
@@ -31,7 +33,7 @@ local ui={construct=function() return widget() end,label=function(_,text) return
     entry=function(_,text) local w=widget(text);entries[#entries+1]=w;return w end,
     button=function(_,text,fn) buttons[text]=fn;return widget(text) end,
     action=function(_,text,fn) buttons[text]=fn end,
-    message=function(text) messages[#messages+1]=text end,rebuild=function() end}
+    message=function(text) messages[#messages+1]=text end,rebuild=function() rebuilds=rebuilds+1 end}
 local function mount()
     page.unmount(true)
     for _,w in ipairs(widgets) do w.alive=false end
@@ -55,6 +57,17 @@ now=now+1;page.update();mount()
 local listText={};for _,w in ipairs(widgets) do listText[#listText+1]=w.text or '' end
 local rosterText=table.concat(listText,'\n')
 assert(rosterText:find('HOST / YOU',1,true) and rosterText:find('Friend',1,true) and rosterText:find('Avatar failed',1,true))
+local before,count=rebuilds,#widgets
+rosterHealth.players[1].status='Avatar active'
+rosterHealth.players[1].map='Observatory'
+page.tick('Multiplayer')
+assert(rebuilds==before and #widgets==count,'Health and park changes must not rebuild controls')
+seen=false;for _,w in ipairs(widgets) do if w.text=='Avatar active   |   Observatory' then seen=true end end;assert(seen)
+stateText=stateText..'player\tguest2\tNew friend\t0\t0\tTheBigHall\t1\n'
+now=now+1;page.tick('Multiplayer')
+assert(rebuilds==before and #widgets==count,'Joining players update reserved rows in place')
+state('host','123');now=now+1;page.tick('Multiplayer')
+assert(rebuilds==before,'Departing players must not rebuild controls')
 buttons['COPY DIAGNOSTICS']();now=now+1;state('host','123');page.update()
 local copied=false;for _,text in pairs(files) do if text:find('action	diagnostics',1,true) then copied=true end end
 assert(copied,'Copy diagnostics reaches the companion')

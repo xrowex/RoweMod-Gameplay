@@ -998,6 +998,8 @@ local menu_ok, menu_error = pcall(function()
     if online_page.update then game_thread.loop(250,online_page.update) end
     menu.init(api)
     rowe_menu = menu
+    local pause_ok,pause_error=pcall(function() require("pause_menu").init(menu) end)
+    if not pause_ok then log("pause-menu integration unavailable; F5 still works: "..tostring(pause_error)) end
 end)
 if not menu_ok then log("menu initialization failed: " .. tostring(menu_error)) end
 game_thread.wrap(function()

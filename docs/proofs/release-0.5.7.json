@@ -1,0 +1,27 @@
+{
+  "version": "0.5.7",
+  "python_tests": 51,
+  "lua_54_suites": 19,
+  "installer_checks": [
+    "fresh install with UE4SS and skeleton",
+    "replace older skeleton",
+    "preserve settings and unrelated mods",
+    "reject damaged skeleton before writes",
+    "roll back runtime and content copy failures"
+  ],
+  "automatic_update": {
+    "downloaded_complete_release": true,
+    "waited_for_parent_exit": true,
+    "skeleton_hashes_matched": true,
+    "reused_pending_download": true,
+    "removed_completed_caches": true
+  },
+  "skeleton": {
+    "native_rig_bones_matched": 87,
+    "cook_errors": 0,
+    "cook_warnings": 0,
+    "hoodie_front_offline_poses_passed": 5,
+    "native_chest_fix_retest": "pending"
+  },
+  "native_pause_menu_and_four_pc_visibility_retest": "pending"
+}

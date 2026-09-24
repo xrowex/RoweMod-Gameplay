@@ -2,6 +2,8 @@
 
 Press **F5** in Rollout to open or close the menu. You can also enter `rowemod menu` in the console.
 
+The pause menu also gains a **ROWEMOD** button using Rollout's installed small-button widget. It opens the same menu over the pause screen; closing with F5 or controller B returns focus to that button and leaves the game paused. F5 remains available if a game update changes the stock pause layout. The new pause entry still needs native in-game acceptance.
+
 Movement, Tricks, and Balance contain live gameplay controls. Load a park before editing. Use the mouse, or arrows and Enter. D-pad/A navigation and B to close are also implemented; controller acceptance is still pending. Select **Save Settings** to keep changes across launches. Each setting has a Reset button; **Reset This Page** restores the values captured before RoweMod overrides. Reset does not save until you choose Save Settings.
 
 Saved settings are data in `%LOCALAPPDATA%\RoweMod\gameplay-settings.txt`; the last successful save is kept as `.bak`. They override `config.lua` on launch and F8 reload. No game asset files are redistributed: the native UMG menu references Rollout's installed Quantico font.
@@ -23,5 +25,7 @@ The UMG construction approach was informed by [ue4ss-ModMenu](https://github.com
 ## Player list and diagnostics
 
 F5 > Multiplayer shows the installed RoweMod version and a live player list during a session. The host and your own skater are marked. Remote status distinguishes connecting, waiting for poses, loading/another map, avatar failure, interrupted poses and an active avatar. These describe the local game's state; "Avatar active" is not a promise that the player is inside your camera view.
+
+Player names, health, parks and counts update in place, including players joining or leaving. Session metadata also updates without rebuilding its buttons. When the list of available sessions changes, selection follows the same session ID and scroll position is retained. If the selected session disappears, focus returns to the Multiplayer tab instead of selecting another Join button.
 
 Use **Copy Diagnostics** in the Help card to copy a bounded report from the running Steam companion. It includes local role/map, per-player traffic, pose application and avatar errors. Account IDs, display names and the session code are omitted or replaced with player aliases. Nothing is uploaded. If the clipboard is unavailable, the report is saved as `%TEMP%\RoweModMP\Steam\diagnostics-copy.txt`. A running Steam companion is required; a failed Steam startup still uses the startup error shown in the menu.

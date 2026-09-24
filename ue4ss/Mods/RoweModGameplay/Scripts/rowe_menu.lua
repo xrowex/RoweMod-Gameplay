@@ -50,12 +50,12 @@ local function box(parent,height,width)
     if width then w:SetWidthOverride(width) end
     return w
 end
-local function button(parent,text,action,accent)
+local function button(parent,text,action,accent,key)
     local b=construct("Button",parent)
     b:SetBackgroundColor(accent and C.purple or C.row)
     b:SetContent(label(b,text,18))
     b:SetClickMethod(1)
-    local ctrl={kind="button",widget=b,action=action,accent=accent}
+    local ctrl={kind="button",widget=b,action=action,accent=accent,id=key or ("button:"..text)}
     S.controls[#S.controls+1]=ctrl
     return b,ctrl
 end
@@ -64,7 +64,7 @@ local function message(text)
     if valid(S.status) then settext(S.status,S.message) end
     print("[RoweMenu] "..S.message)
 end
-local build_page
+local build_page,navigate
 local function release_page(capture)
     -- Drop native widget references while the page still owns its children.
     if S.api.unmount then S.api.unmount(capture~=false) end
@@ -96,7 +96,7 @@ local function setting(parent,item)
             local nextValue=not S.api.get(key)
             S.api.set(key,nextValue)
             settext(ctrl.text,pretty(nextValue))
-        end)
+        end,false,"toggle:"..key)
         ctrl.text=b:GetContent()
         local w=box(row,nil,130);w:SetContent(b);hadd(row,w)
     else
@@ -110,15 +110,19 @@ local function setting(parent,item)
         local width=box(row,nil,115);width:SetContent(text);hadd(row,width)
         pcall(function() slide:SetToolTipText(FText((item.hint or "").." Range: "..
             limits.format(item,min).." - "..limits.format(item,max)..". Stock: "..limits.format(item,item.default))) end)
-        S.controls[#S.controls+1]={kind="slider",widget=slide,text=text,key=key,
+        S.controls[#S.controls+1]={kind="slider",widget=slide,text=text,key=key,id="slider:"..key,
             min=min,max=max,step=item[5],item=item,last=slide:GetValue(),applied=value}
     end
     local reset=button(row,"RESET",function()
         S.api.reset(key);S.rebuild=true;message(title.." reset")
-    end)
+    end,false,"reset:"..key)
     local w=box(row,nil,100);w:SetContent(reset);hadd(row,w)
 end
 build_page=function()
+    local previous=S.builtPage==S.page and S.controls[S.selected]
+    local selectedId=previous and previous.id
+    local offset=0
+    if selectedId then pcall(function() offset=S.scroll:GetScrollOffset() end) end
     release_page(true);S.selected=1
     S.content:ClearChildren()
     local header=construct("HorizontalBox",S.content)
@@ -154,10 +158,24 @@ build_page=function()
     S.status=label(S.content,S.message or (S.page=="Multiplayer" and "Join a session to follow the host's park automatically." or "Changes apply live. Save to keep them."),15,C.muted)
     S.status:SetAutoWrapText(true);vadd(S.content,S.status,8)
     vadd(S.content,label(S.content,"F5 close   /   Mouse or arrows + Enter   /   D-pad + A",13,C.muted))
+    if selectedId then
+        -- A disappeared session must not select a different JOIN or LEAVE action.
+        local fallback
+        for i,c in ipairs(S.controls) do
+            if c.id=="button:"..S.page:upper() then fallback=i end
+            if c.id==selectedId then S.selected=i;fallback=nil;break end
+        end
+        if fallback then S.selected=fallback end
+        if S.navFocus then navigate(0,true) end
+        pcall(function() S.scroll:SetScrollOffset(offset) end)
+    else S.navFocus=false;pcall(function() S.scroll:SetScrollOffset(0) end) end
+    S.builtPage=S.page
     S.click=false;S.rebuild=false
 end
 function M.close(discard)
     if not S.open then return end
+    local world=helpers.GetWorld()
+    discard=discard or not valid(world) or world:GetAddress()~=S.world
     release_page(not discard)
     S.open=false
     if valid(S.root) then S.root:SetVisibility(1) end
@@ -168,7 +186,21 @@ function M.close(discard)
         if S.ignoreLook then pc:SetIgnoreLookInput(false) end
         local lib=StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary")
         if not S.cursor then lib:SetInputMode_GameOnly(pc,false) end
+        local target=S.returnTo
+        if target then
+            if not discard and valid(target.pause) then target.pause:SetIsEnabled(true) end
+            if not discard and valid(target.pause) and valid(target.focus) and target.pause:IsActivated() and target.pause:IsVisible() then
+                lib:SetInputMode_UIOnlyEx(pc,target.focus,0,false)
+                target.focus:SetKeyboardFocus()
+            else
+                -- The game's own back action or a map transition may remove
+                -- the pause screen first. Never focus a hidden/obsolete menu.
+                pc.bShowMouseCursor=false
+                lib:SetInputMode_GameOnly(pc,false)
+            end
+        end
     end
+    S.returnTo=nil
     S.ignoreMove=false;S.ignoreLook=false;S.click=false
     print("[RoweMenu] closed")
 end
@@ -209,6 +241,7 @@ local function open_menu()
     StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary"):SetInputMode_GameAndUIEx(S.pc,S.root,0,false,false)
     S.world=helpers.GetWorld():GetAddress()
     S.open=true
+    S.justOpened=true
     print("[RoweMenu] opened "..S.page.." native_font="..tostring(valid(S.font)))
 end
 function M.open()
@@ -223,7 +256,16 @@ function M.open()
 end
 function M.toggle() if S.open then M.close() else M.open() end end
 function M.is_open() return S.open end
-local function navigate(delta)
+function M.open_from_pause(pause,focus)
+    if S.open or not valid(pause) or not valid(focus) then return end
+    M.open()
+    if S.open then
+        S.returnTo={pause=pause,focus=focus}
+        pause:SetIsEnabled(false)
+        StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary"):SetInputMode_UIOnlyEx(S.pc,S.root,0,false)
+    end
+end
+navigate=function(delta,preserveScroll)
     if not S.open or #S.controls==0 then return end
     local old=S.controls[S.selected]
     if old and old.kind=="button" then
@@ -236,7 +278,8 @@ local function navigate(delta)
         ctrl.widget:SetBackgroundColor(C.yellow)
         ctrl.widget:GetContent():SetColorAndOpacity({SpecifiedColor=C.panel,ColorUseRule=0})
     end
-    pcall(function() S.scroll:ScrollWidgetIntoView(ctrl.widget,true,0,12) end)
+    S.navFocus=true
+    if not preserveScroll then pcall(function() S.scroll:ScrollWidgetIntoView(ctrl.widget,true,0,12) end) end
     pcall(function() ctrl.widget:SetKeyboardFocus() end)
 end
 local function activate(delta)
@@ -253,6 +296,7 @@ local function tick()
     if not valid(world) or world:GetAddress()~=S.world or not valid(S.root) then
         M.close(true);if valid(S.root) then S.root:RemoveFromParent() end;S.root=nil;return
     end
+    if S.returnTo and (not valid(S.returnTo.pause) or not S.returnTo.pause:IsActivated()) then M.close();return end
     if S.rebuild then build_page();return end
     local click=S.click;S.click=false
     for i,c in ipairs(S.controls) do
@@ -295,9 +339,10 @@ function M.init(api)
             for key,fn in pairs(keys) do
                 local ok,down=pcall(function() return S.pc:IsInputKeyDown({KeyName=FName(key)}) end)
                 down=ok and down
-                if down and not previous[key] then fn() end
+                if down and not previous[key] and not S.justOpened then fn() end
                 previous[key]=down
             end
+            S.justOpened=false
         else previous={} end
         tick()
     end)
@@ -313,8 +358,8 @@ function M.card(parent,title,subtitle)
     if subtitle then local text=label(body,subtitle,15,C.muted);text:SetAutoWrapText(true);vadd(body,text,4) end
     return body
 end
-function M.action(parent,title,fn,accent)
-    local holder=box(parent,46);local control=button(holder,title,fn,accent)
+function M.action(parent,title,fn,accent,key)
+    local holder=box(parent,46);local control=button(holder,title,fn,accent,key)
     holder:SetContent(control);vadd(parent,holder,6)
 end
 function M.entry(parent,text)

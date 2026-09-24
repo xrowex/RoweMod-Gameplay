@@ -1,15 +1,21 @@
 # RoweMod for Rollout Inline
 
-In-game gameplay settings and Steam multiplayer. Unofficial fan mod.
+In-game gameplay settings, Steam multiplayer, and a selectable skeleton body. Unofficial fan mod.
 
 ## Install
 
-1. [Download **RoweMod-0.5.6.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
+1. [Download **RoweMod-0.5.7.zip**](https://github.com/xrowex/RoweMod-Gameplay/releases/latest).
 2. Extract the whole ZIP. Close Rollout and RoweMod Online.
-3. Double-click **install.cmd**. UE4SS is included; no Python installation needed.
+3. Double-click **install.cmd**. UE4SS and the skeleton body are included; no separate downloads needed.
 4. Launch Rollout from Steam, load a park, and press **F5**.
 
 Use Movement, Tricks, or Balance to adjust gameplay live. Click **Save Settings** to keep your changes. The Camera tab has been removed.
+
+## Skeleton body
+
+Select **Skeleton** in the game's **Character customization > Body** menu. Clothes and skates use the normal customization controls. The chest fit includes the hoodie clipping correction.
+
+Existing RoweMod users receive the body automatically with this update: launch the game to download it, close Rollout and RoweMod Online so it installs, then launch again. Friends on this version receive the same body assets.
 
 ## Play with a friend
 
@@ -29,4 +35,4 @@ Download the **RoweMod ZIP** under release assets, not GitHub's automatically ge
 
 [Menu guide](docs/in-game-menu.md) | [Update and recovery details](docs/auto-updates.md) | [Advanced settings](docs/gameplay-reference.md) | [Steam troubleshooting](docs/steam-online.md)
 
-MIT-licensed mod. Bundled tools retain their [own licenses](docs/third-party-online.md). No game assets are included.
+MIT-licensed mod. Bundled tools retain their [own licenses](docs/third-party-online.md). The bundled anatomical skeleton has its own [CC BY-SA attribution](docs/licenses/Skeleton.txt). Original game meshes and textures are not included.

@@ -11,6 +11,12 @@ local snapshot={rows={},stale=true,message="Connecting to Steam..."}
 local request_seq=0
 local last_search=0
 local copy_waiting
+local player_widgets,room_widgets={},{}
+local session_label
+local label_text={}
+local function set_label(w,text)
+    if label_text[w]~=text then ui.settext(w,text);label_text[w]=text end
+end
 local function encode(value)
     return tostring(value or ""):gsub("[%%\t\r\n]",function(c) return string.format("%%%02X",c:byte()) end)
 end
@@ -68,6 +74,7 @@ function M.unmount(capture)
         if id_field then lobby_id=id_field:GetText():ToString() end
     end
     name_field=nil;id_field=nil;status_label=nil;ui=nil;signature=nil;last_notice=nil
+    player_widgets={};room_widgets={};session_label=nil;label_text={}
 end
 function M.update()
     if not initialized or last_update==os.time() then return end
@@ -114,10 +121,32 @@ local function player_rows()
     return rows
 end
 local function layout_signature()
-    local parts={active(snapshot) and (snapshot.role..snapshot.lobby..tostring(snapshot.map)..tostring(snapshot.players)) or "browse",failure or "",map_status().phase or "idle"}
-    for _,r in ipairs(snapshot.rows) do parts[#parts+1]=table.concat(r,"|") end
-    for _,r in ipairs(player_rows()) do parts[#parts+1]=table.concat({r.name,r.badge,r.status,r.map},"|") end
+    -- Only structural changes rebuild controls. Names, counts, parks and avatar
+    -- health update existing labels without disturbing focus or text entry.
+    local parts={active(snapshot) and (snapshot.role..":"..snapshot.lobby) or "browse",
+        tostring(not not (failure or snapshot.stale and not starting)),
+        tostring(active(snapshot) and map_status().phase=="failed")}
+    if not active(snapshot) and view=="join" then
+        for _,r in ipairs(snapshot.rows) do parts[#parts+1]=r[2] end
+    end
     return table.concat(parts,"\n")
+end
+local function refresh_labels()
+    if session_label then set_label(session_label,"Players: "..tostring(snapshot.players or "1").."   |   Park: "..tostring(snapshot.map or "Loading")) end
+    local rows=player_rows()
+    for i,w in ipairs(player_widgets) do
+        local p=rows[i]
+        local visibility=p and 4 or 1 -- self-hit-test-invisible / collapsed
+        if w.visibility~=visibility then w.row:SetVisibility(visibility);w.visibility=visibility end
+        if p then
+            set_label(w.name,p.name.."   /   "..p.badge)
+            set_label(w.status,p.status.."   |   "..(p.map=="unknown" and "Waiting for park" or p.map))
+        end
+    end
+    for _,r in ipairs(snapshot.rows) do
+        local w=room_widgets[r[2]]
+        if w then set_label(w.name,r[3]);set_label(w.detail,r[4].."   |   "..r[5].." players") end
+    end
 end
 local function switch(nextView) view=nextView;show_code=false;rebuild() end
 function M.build(renderer,parent)
@@ -137,16 +166,17 @@ function M.build(renderer,parent)
     if active(state) then
         local card=ui.card(parent,state.role=="host" and "YOUR SESSION" or "SKATING TOGETHER",
             state.role=="host" and "Friends join you here. Changing parks brings them along." or "You follow the host's park automatically.")
-        ui.vadd(card,ui.label(card,"Players: "..tostring(state.players or "1").."   |   Park: "..tostring(state.map or "Loading"),18),6)
+        session_label=ui.label(card,"",18);ui.vadd(card,session_label,6)
         local travel=map_status()
         if travel.phase=="failed" then ui.action(card,"RETRY MAP LOAD",function() api.retry_map() end,true) end
         local players=ui.card(parent,"PLAYERS","Avatar status is shown from your game's point of view.")
-        for _,p in ipairs(player_rows()) do
-            local name=ui.label(players,p.name.."   /   "..p.badge,17)
+        for i=1,8 do
+            local row=ui.construct("VerticalBox",players);ui.vadd(players,row,0)
+            local name=ui.label(row,"",17)
             pcall(function() name:SetAutoWrapText(true) end)
-            ui.vadd(players,name,6)
-            local park=p.map=="unknown" and "Waiting for park" or p.map
-            ui.vadd(players,ui.label(players,p.status.."   |   "..park,15),4)
+            ui.vadd(row,name,6)
+            local detail=ui.label(row,"",15);ui.vadd(row,detail,4)
+            player_widgets[i]={row=row,name=name,status=detail}
         end
         ui.action(card,show_details and "HIDE SESSION CODE" or "SHOW SESSION CODE",function() show_details=not show_details;rebuild() end)
         if show_details then ui.vadd(card,ui.label(card,tostring(state.lobby),18),6) end
@@ -176,8 +206,11 @@ function M.build(renderer,parent)
             ui.hadd(filters,ui.button(filters,"REFRESH",function() request(source) end),true)
             ui.vadd(card,filters,8)
             for _,r in ipairs(state.rows) do
-                local room=ui.card(card,r[3],r[4].."   |   "..r[5].." players")
-                ui.action(room,"JOIN SESSION",function() request("join",{lobby=r[2]}) end,true)
+                local room=ui.card(card)
+                local name=ui.label(room,r[3],22);ui.vadd(room,name,4)
+                local detail=ui.label(room,r[4].."   |   "..r[5].." players",15);ui.vadd(room,detail,4)
+                room_widgets[r[2]]={name=name,detail=detail}
+                ui.action(room,"JOIN SESSION",function() request("join",{lobby=r[2]}) end,true,"join:"..r[2])
             end
             if #state.rows==0 then ui.vadd(card,ui.label(card,starting and "Connecting to Steam..." or "No sessions found yet.",16),12) end
             ui.action(card,show_code and "HIDE SESSION CODE" or "JOIN WITH A CODE",function() show_code=not show_code;rebuild() end)
@@ -194,7 +227,7 @@ function M.build(renderer,parent)
     end
     local support=ui.card(parent,"HELP","Copies connection and avatar details without account IDs or the session code.")
     ui.action(support,"COPY DIAGNOSTICS",function() request("diagnostics");say("Preparing diagnostics...") end)
-    signature=layout_signature();last_notice=nil
+    refresh_labels();signature=layout_signature();last_notice=nil
 end
 function M.tick(page)
     M.update()
@@ -207,9 +240,10 @@ function M.tick(page)
     elseif starting then text="Connecting to Steam... ("..tostring(os.time()-starting).."s)"
     elseif ready(snapshot) and not active(snapshot) then text="Steam ready. "..tostring(snapshot.message or "Choose a session or host your own.") end
     if pending and not starting then text="Connecting to your session..." end
-    if status_label then ui.settext(status_label,text) end
+    if status_label then set_label(status_label,text) end
     last_notice=text
     local nextSignature=layout_signature()
-    if signature~=nextSignature then signature=nextSignature;rebuild() end
+    if signature~=nextSignature then signature=nextSignature;rebuild()
+    else refresh_labels() end
 end
 return M

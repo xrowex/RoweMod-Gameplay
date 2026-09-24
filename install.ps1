@@ -21,6 +21,20 @@ foreach ($entry in $manifest.sha256.PSObject.Properties) {
 if (-not (Test-Path -LiteralPath (Join-Path $here 'tools\deps\RoweModOnline.exe'))) {
     throw 'The Online executable is missing. Use the full release ZIP, not GitHub Source code.zip.'
 }
+$bodyRoot = Join-Path $here 'assets/skeleton'
+$bodyManifest = Get-Content -LiteralPath (Join-Path $bodyRoot 'manifest.json') -Raw | ConvertFrom-Json
+$bodyFiles = @('RoweSkeleton_P.pak','RoweSkeleton_P.utoc','RoweSkeleton_P.ucas')
+foreach ($name in $bodyFiles) {
+    $source = Join-Path $bodyRoot $name
+    if (-not $bodyManifest.sha256.$name -or -not (Test-Path -LiteralPath $source) -or
+        (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $bodyManifest.sha256.$name) {
+        throw "Skeleton bundle missing or damaged: $name. Extract the complete RoweMod release ZIP again."
+    }
+}
+$gameRoot = Split-Path (Split-Path $win64)
+if ((Split-Path $win64 -Leaf) -ne 'Win64' -or (Split-Path (Split-Path $win64) -Leaf) -ne 'Binaries') {
+    throw 'Expected the game Binaries\Win64 folder; cannot locate Content\Paks safely.'
+}
 # Elevate only when this Steam library needs administrator access.
 $probe = Join-Path $win64 ('.rowemod-write-' + [guid]::NewGuid().ToString('N'))
 try { [IO.File]::WriteAllText($probe, ''); Remove-Item -LiteralPath $probe -Force }
@@ -35,6 +49,11 @@ $stage = Join-Path $state "InstallStaging\$stamp"
 $backup = Join-Path $state "Backups\Install-$stamp"
 New-Item -ItemType Directory -Force -Path $stage,$backup | Out-Null
 $plan = @{}
+$contentTargets = @{}
+function Get-PayloadTarget([string]$relative) {
+    if ($contentTargets.ContainsKey($relative)) { return $contentTargets[$relative] }
+    return Join-Path $win64 $relative
+}
 function Add-Payload([string]$relative, [string]$source) {
     $dest = Join-Path $stage $relative
     New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
@@ -48,6 +67,13 @@ function Add-Text([string]$relative, [string]$text) {
     $plan[$relative] = $dest
 }
 foreach ($entry in $manifest.sha256.PSObject.Properties) { Add-Payload $entry.Name (Join-Path $runtime $entry.Name) }
+foreach ($name in $bodyFiles) {
+    $key = "GameContent/Paks/~mods/$name"
+    Add-Payload $key (Join-Path $bodyRoot $name)
+    $contentTargets[$key] = Join-Path $gameRoot "Content/Paks/~mods/$name"
+}
+Add-Payload 'RoweModOnline/licenses/Skeleton.txt' (Join-Path $here 'docs/licenses/Skeleton.txt')
+Add-Payload 'RoweModOnline/licenses/Skeleton-source.txt' (Join-Path $bodyRoot 'SOURCE-LICENSE.txt')
 # Preserve unrelated UE4SS settings while applying the tested Rollout overrides.
 $iniPath = Join-Path $win64 'ue4ss\UE4SS-settings.ini'
 if (Test-Path -LiteralPath $iniPath) {
@@ -96,7 +122,7 @@ Add-Text 'steam_appid.txt' "4464990`r`n"
 $changed = [Collections.Generic.List[string]]::new()
 $previous = @{}
 foreach ($rel in $plan.Keys) {
-    $target = Join-Path $win64 $rel
+    $target = Get-PayloadTarget $rel
     $previous[$rel] = Test-Path -LiteralPath $target
     if ($previous[$rel]) {
         $copy = Join-Path $backup $rel
@@ -106,7 +132,7 @@ foreach ($rel in $plan.Keys) {
 }
 try {
     foreach ($rel in $plan.Keys) {
-        $target = Join-Path $win64 $rel
+        $target = Get-PayloadTarget $rel
         New-Item -ItemType Directory -Force -Path (Split-Path $target) | Out-Null
         $changed.Add($rel)
         Copy-Item -LiteralPath $plan[$rel] -Destination $target -Force
@@ -116,7 +142,7 @@ try {
     $failure = $_
     $restoreErrors = @()
     foreach ($rel in $changed) {
-        $target = Join-Path $win64 $rel
+        $target = Get-PayloadTarget $rel
         try {
             if ($previous[$rel]) {
                 $saved = Join-Path $backup $rel
@@ -130,7 +156,7 @@ try {
     throw $failure
 }
 $version = (Get-Content -LiteralPath (Join-Path $here 'version.json') -Raw | ConvertFrom-Json).version
-@{version=$version;game=$win64;ue4ss=$manifest.build;backup=$backup;files=@($plan.Keys)} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'receipt.json') -Encoding UTF8
+@{version=$version;game=$win64;ue4ss=$manifest.build;backup=$backup;files=@($plan.Keys);contentTargets=$contentTargets} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'receipt.json') -Encoding UTF8
 # Cleanup is post-success maintenance and must never trigger rollback.
 try {
     # Claim the successfully installed current package even when it was staged
@@ -148,4 +174,5 @@ catch { Write-Warning ('Installed successfully; cleanup deferred: ' + $_.Excepti
 Write-Host "Installed RoweMod $version with UE4SS $($manifest.build)."
 Write-Host "Backup: $backup"
 Write-Host 'Launch Rollout from Steam. F5 opens gameplay and multiplayer.'
+Write-Host 'Skeleton body included: select Skeleton in character customization > Body.'
 Write-Host 'Updates check automatically at launch and install after the game and companion close.'

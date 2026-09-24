@@ -16,3 +16,5 @@ components retain their own licenses; the MIT license does not replace them.
 - Native menu construction techniques adapted from Matthew Arvidson's MIT [ue4ss-ModMenu](https://github.com/mattdavida/ue4ss-ModMenu). See `docs/licenses/ModMenu.txt`.
 
 The tested UE4SS runtime is included under its MIT license: `tools/deps/ue4ss-runtime/ue4ss/LICENSE`. Source: https://github.com/UE4SS-RE/RE-UE4SS/tree/f6d5f942. Game assets are not included.
+
+- Anatomical skeleton surfaces adapted from Z-Anatomy / BodyParts3D, with adapted surfaces under CC BY-SA 4.0. See `docs/licenses/Skeleton.txt` and `assets/skeleton/SOURCE-LICENSE.txt`. This asset license is separate from the mod code license.

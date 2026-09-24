@@ -1,5 +1,6 @@
 """Exercise the real deferred PowerShell installer with a local release fixture."""
 import json
+import hashlib
 import os
 import shutil
 import subprocess
@@ -16,7 +17,7 @@ import online_updater as updater
 def main():
     target_version = json.loads((repo/'version.json').read_text())['version']
     root = Path(tempfile.mkdtemp(prefix='RoweMod-UpdateProof-'))
-    game = root/'Game With Spaces/Win64'
+    game = root/'Game With Spaces/Binaries/Win64'
     game.mkdir(parents=True)
     (game/'RollerSkate-Win64-Shipping.exe').write_text('test fixture; never executed')
     (game/'RoweModOnline').mkdir()
@@ -74,6 +75,10 @@ while not done.exists(): time.sleep(.1)
         assert not list((root/'AppData/RoweMod/InstallStaging').iterdir()), 'Completed install staging remained'
         assert (game/'ue4ss/UE4SS.dll').is_file()
         assert (game/'ue4ss/Mods/RoweModGameplay/Scripts/rowe_menu.lua').is_file()
+        body_hashes = json.loads((repo/'assets/skeleton/manifest.json').read_text())['sha256']
+        for name, digest in body_hashes.items():
+            installed = game.parent.parent/'Content/Paks/~mods'/name
+            assert hashlib.sha256(installed.read_bytes()).hexdigest() == digest, name
         assert list((root/'AppData/RoweMod/Backups').glob('Install-*/receipt.json'))
         # Run the packaged standalone updater against the actual GitHub endpoint.
         # A current/newer fixture must not downgrade to the public stable release.
@@ -83,7 +88,7 @@ while not done.exists(): time.sleep(.1)
         live=json.loads(status_path.read_text(encoding='utf-8-sig'))
         assert live['message'] in ('No published update release yet','Up to date'),live
         proof=dict(root=str(root),held_parent_prevented_install=True,deferred_install='0.4.0 -> '+target_version,
-                   ue4ss_installed=True,backup_receipt=True,pending_download_reused=True,completed_caches_removed=True,packaged_exe_live_check=live)
+                   ue4ss_installed=True,skeleton_automatically_installed=True,backup_receipt=True,pending_download_reused=True,completed_caches_removed=True,packaged_exe_live_check=live)
         (repo/('docs/proofs/auto-update-'+target_version+'.json')).write_text(json.dumps(proof,indent=2)+'\n')
         print(json.dumps(proof,indent=2))
     finally:

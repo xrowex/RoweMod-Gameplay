@@ -3,6 +3,9 @@ package.path="ue4ss/Mods/RoweModGameplay/Scripts/?.lua;"..package.path
 local objects,keys={},{}
 local methods={}
 local unmounted=false
+local focused,scroll
+local now=0
+os.clock=function() return now end
 function methods:ClearChildren() assert(unmounted,'Release page references before detaching widgets');unmounted=false end
 function methods:IsValid() return true end
 function methods:GetAddress() return self.address or 1 end
@@ -19,6 +22,13 @@ function methods:SetIgnoreMoveInput(on) self.move=(self.move or 0)+(on and 1 or 
 function methods:SetIgnoreLookInput(on) self.look=(self.look or 0)+(on and 1 or -1) end
 function methods:RemoveFromParent() self.removed=true end
 function methods:SetVisibility(value) self.visibility=value end
+function methods:SetKeyboardFocus() focused=self end
+function methods:GetScrollOffset() return self.offset or 0 end
+function methods:SetScrollOffset(value) self.offset=value end
+function methods:SetIsEnabled(value) self.enabled=value end
+function methods:IsActivated() return self.active~=false end
+function methods:IsVisible() return self.active~=false end
+function methods:SetInputMode_UIOnlyEx(_,focus) self.uiFocus=focus end
 local function object(kind)
     local o=setmetatable({kind=kind,Font={}}, {__index=function(self,key)
         if methods[key] then return methods[key] end
@@ -26,6 +36,7 @@ local function object(kind)
         if key:match('^Set') or key=='ClearChildren' or key=='AddToViewport' or key=='ScrollWidgetIntoView' then return function() end end
     end})
     objects[#objects+1]=o
+    if kind=='/Script/UMG.ScrollBox' then scroll=o end
     return o
 end
 function StaticFindObject(path) return object(path) end
@@ -62,5 +73,31 @@ toggle.pressed=true;tick();assert(writes==2,'Mouse latch and native pressed edge
 keys.F5();assert(not menu.is_open() and pc.move==0 and pc.look==0 and not pc.bShowMouseCursor)
 keys.F5();assert(menu.is_open());world.address=2;tick()
 assert(not menu.is_open() and pc.move==0 and pc.look==0,'Travel must release input')
+-- Keep a selected session by identity when a refresh inserts/removes rows.
+local sessions={'one','two'}
+local joined
+menu.init({unmount=function() unmounted=true end,get=function() end,
+    multiplayer=function(ui,parent)
+        for _,id in ipairs(sessions) do ui.action(parent,'JOIN SESSION',function() joined=id end,true,'join:'..id) end
+    end})
+menu.open()
+for _,o in ipairs(objects) do o.hovered=false end
+local tab
+for _,o in ipairs(objects) do if o.content and o.content.text=='MULTIPLAYER' then tab=o end end
+now=now+1;tab.hovered=true;keys.LEFT_MOUSE_BUTTON();tick();tick();tab.hovered=false
+for _=1,6 do keys.DOWN() end;scroll.offset=140 -- close, four tabs, two sessions
+assert(focused.content.text=='JOIN SESSION')
+sessions={'new','one','two'};menu.rebuild();tick()
+assert(scroll.offset==140,'Refresh preserves scroll position')
+now=now+1;keys.RETURN();assert(joined=='two','Refresh must retain the same session, not an index')
+joined=nil;sessions={'new','one'};menu.rebuild();tick()
+now=now+1;keys.RETURN();assert(joined==nil,'Removed session must not select another join action')
+menu.close()
+-- Closing an overlay opened from pause restores the pause button and input locks.
+local pause,entry=object('pause'),object('entry')
+menu.open_from_pause(pause,entry);assert(menu.is_open() and pause.enabled==false)
+menu.close();assert(pause.enabled and focused==entry and pc.move==0 and pc.look==0)
+menu.open_from_pause(pause,entry);pause.active=false;tick()
+assert(not menu.is_open() and pause.enabled and not pc.bShowMouseCursor,'Closing the stock pause menu must release the overlay')
 print('menu no-write open, live settings, click deduplication, close and travel cleanup passed')
 

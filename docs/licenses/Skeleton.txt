@@ -1,0 +1,20 @@
+RoweMod realistic skeleton asset
+
+Source: Z-Anatomy / BodyParts3D, SkeletalSystem100.fbx
+https://github.com/LluisV/Z-Anatomy/tree/6c7f9016bd5899ac8edafd31b9900c151df42ed6/Resources/Models
+Source SHA-256: 294a649765cd060a62a4095da52b9c8ef2d97769aa447e196448aa5f7d596dea
+
+Required attribution supplied with the source:
+BodyParts3D - The Database Center for Life Science - CC-BY-SA 2.1 Japan
+Z-Anatomy - The open source atlas of anatomy - CC-BY-SA 4.0
+
+https://creativecommons.org/licenses/by-sa/2.1/jp/
+https://creativecommons.org/licenses/by-sa/4.0/
+
+RoweMod modifications: select bone surfaces and costal cartilage; omit anatomy
+labels, muscle insertion overlays, and inner-ear models; reduce polygon count;
+fit to the Rollout character proportions and bind to its animation joints;
+assign a bone material. The adapted anatomical surfaces remain CC-BY-SA 4.0.
+Retain this notice when sharing them. The mod's code license does not replace
+these asset licenses. Original game assets are referenced from the installed
+game and are not licensed or redistributed as part of the anatomical source.

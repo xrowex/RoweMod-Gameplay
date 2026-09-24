@@ -1,0 +1,10 @@
+{
+  "table": "DT-bodytypes",
+  "cloneRow": "male-01",
+  "row": "rowe-skeleton-mod",
+  "localizedName": "Skeleton",
+  "previewImage": "/Game/RoweMod/Characters/Skeleton/T_SkeletonPreview",
+  "refs": {
+    "SkeletalMesh": "/Game/RoweMod/Characters/Skeleton/SK_RoweSkeleton"
+  }
+}

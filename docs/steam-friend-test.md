@@ -1,10 +1,12 @@
-# RoweMod 0.5.6 - install and play
+# RoweMod 0.5.7 - install and play
 
 1. Extract the entire ZIP to a normal folder. Close Rollout and RoweMod Online.
-2. Double-click **install.cmd**. It finds the Steam game, installs the bundled tested UE4SS runtime, and installs RoweMod. If Windows needs administrator access to the game folder, accept the installer prompt. No separate UE4SS or Python download is needed.
+2. Double-click **install.cmd**. It finds the Steam game, installs the bundled tested UE4SS runtime, and installs RoweMod. If Windows needs administrator access to the game folder, accept the installer prompt. The skeleton body is included too. No separate UE4SS, Python, or body download is needed.
 3. Launch Rollout from Steam, load a park, and press **F5**.
 4. Gameplay changes apply live. **Save Settings** keeps them for next time.
 5. Open Multiplayer. Steam connects and searches for friends automatically. The host loads a park and chooses **Host > Host Session**. Friends choose **Join Session**; their game loads the host's park automatically. Each player needs their own Steam account and copy of Rollout.
+
+Select **Skeleton** under the game's **Character customization > Body** menu. Existing users get the body through the same automatic update, after closing the game and companion.
 
 You can also use **START ONLINE.cmd** for the desktop browser and launcher. The hidden in-game companion closes automatically after Rollout exits; the visible desktop companion stays open until you close it.
 

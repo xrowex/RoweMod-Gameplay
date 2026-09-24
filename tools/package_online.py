@@ -21,6 +21,18 @@ def main():
              'docs/auto-updates.md', 'docs/in-game-menu.md', 'docs/slider-audit.md', 'docs/licenses/ModMenu.txt', 'docs/third-party-online.md', 'docs/proofs/steam-probe-20260921.json',
              'docs/proofs/steam-native-20260921.json']
     files = {name: repo / name for name in names}
+    for name in ('docs/licenses/Skeleton.txt', 'docs/skeleton-body.md',
+                 'assets/skeleton/manifest.json', 'assets/skeleton/SOURCE-LICENSE.txt'):
+        files[name] = repo / name
+    bodies = json.loads((repo/'assets/skeleton/manifest.json').read_text())
+    if set(bodies['sha256']) != {'RoweSkeleton_P.pak', 'RoweSkeleton_P.utoc', 'RoweSkeleton_P.ucas'}:
+        raise RuntimeError('Skeleton manifest must contain exactly the three owned packages')
+    for name, digest in bodies['sha256'].items():
+        rel = 'assets/skeleton/' + name
+        path = repo / rel
+        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            raise RuntimeError('Skeleton checksum mismatch: ' + name)
+        files[rel] = path
     runtime = json.loads((repo/'tools/ue4ss-runtime.json').read_text())
     for name, digest in runtime['sha256'].items():
         rel = 'tools/deps/ue4ss-runtime/' + name
